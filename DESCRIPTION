@@ -1,0 +1,11 @@
+Package: XRJulia
+Type: Package
+Title: What the package does (short line)
+Version: 0.5
+Date: 2015-03-17
+Author: Your Name
+Maintainer: Your Name <your@email.com>
+Description: More about what it does (maybe more than one line)
+License: GPL (>= 2)
+NeedsCompilation: no
+Packaged: 2015-09-10 13:25:41 UTC; jmc
