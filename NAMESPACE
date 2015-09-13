@@ -1,3 +1,13 @@
 import(XR)
 
-exportPattern("^[[:alpha:]]+")
+## exportPattern("^[[:alpha:]]+")
+
+export(RJulia)
+export(juliaClassDef) #? or make into class like PythonClassDef?
+export(JuliaFunction,JuliaInterface,JuliaObject)
+exportClass(JuliaFunction,JuliaInterface,JuliaObject)
+
+export( juliaAddToPath, juliaClassDef, juliaGet, juliaImport, juliaSend, juliaSource )
+
+export(setJuliaClass)
+

@@ -1,3 +1,8 @@
+#' An Interface to Julia
+#'
+#' The JuliaInterface class provides an evaluator for computations in Julia, following the structure
+#' in the XR  package.  Proxy functions and classes allow use of the interface with no explicit
+#' reference to the evaluator.  The function \code{RJulia()} returns an evaluator object.
 JuliaInterface <- setRefClass("JuliaInterface",
                       fields = c( port = "integer", host = "character",
                           previous = "integer", julia_bin = "character",
@@ -14,7 +19,7 @@ JuliaInterface$methods(
                            if(length(port) == 0 || is.na(port)) { # uninitialized
                                xport <- getOption("JuliaPort")
                                if(length(xport) == 0 ||is.na(xport))
-                                   xport <- basePort + XR::evaluatorNumber(evaluatorId)
+                                   xport <- basePort + XR::evaluatorNumber(.self)
                                port <<- as.integer(xport)
                                startJulia <- TRUE
                            }
@@ -150,17 +155,38 @@ JuliaInterface$methods(
     }
 )
 
-juliaImport <- function(..., .ev = RJulia())
-    .ev$Import(...)
+#' Function Versions of Methods for Julia Interface evaluators.
+#'
+#' @name functions
+#' @param ... arguments to the corresponding method for an evaluator object.
+#' @param evaluator The evaluator object to use.  By default, and usually, the current evaluator
+#' is used, and one is started if none has been.
+NULL
 
-juliaSource <- function(..., .ev = RJulia())
-    .ev$Source(filename)
+#' @describeIn functions
+#' import the modules or objects
+juliaImport <- function(..., evaluator = RJulia())
+    evaluator$Import(...)
 
-juliaAddToPath <- function(..., .ev = RJulia())
-    .ev$AddToPath(filename)
+#' @describeIn functions
+#' evaluate the file of Julia source.
+juliaSource <- function(..., evaluator = RJulia())
+    evaluator$Source(...)
+
+#' @describeIn functions
+#' add the directory to the path for finding Julia functions and types
+juliaAddToPath <- function(..., evaluator = RJulia())
+    evaluator$AddToPath(...)
 
 .JuliaInterfaceClass <- getClass("JuliaInterface")
 
+#' An Evaluator for the Julia Interface.
+#'
+#' Returns an evaluator for the Julia interface.  Starts one on the first call, or if arguments are provided;
+#' providing argument \code{.makeNew = TRUE} will force a new evaluator.  Otherwise, the current evaluator is
+#' returned.
+#'
+#' See \code{\link{JuliaInterface}} for details of the evaluator.
 RJulia <- function(...)
     XR::getInterface(.JuliaInterfaceClass, ...)
 
@@ -203,11 +229,24 @@ setLoadAction(.setPort, "setJuliaPort")
 ## Julia will have some methods for data conversion via asServerObject
 ## The evaluator's prototypeObject field will be from class JuliaObject
 
+#' Proxy Objects in R for Julia Objects
+#'
+#' @name proxyJuliaObjects
+NULL
 
+#' Proxy Objects in R for Julia Objects
+#'
+#' This is a class for all proxy objects from a Julia class with an R proxy class definition.
+#' Objects will normally be from a subclass of this class, for the specific Julia class.
+#'
+#' Proxy objects returned from the Julia interface will be promoted to objects
+#' from a specific R proxy class for their Julia class, if such a class has been defined.
 JuliaObject <- setRefClass("JuliaObject",
                                 contains = "ProxyClassObject")
 
-## use the reshape() function in Julia to create a suitable multi-way array
+#'  Array method for asServerObject()
+#'
+#' use the reshape() function in Julia to create a suitable multi-way array
 setMethod("asServerObject", c("array", "JuliaObject"),
           function(object, prototype) {
               ## the data part will be a JSON list, forced by the asS4() for length 1
@@ -231,6 +270,9 @@ setMethod("asServerObject", c("array", "JuliaObject"),
     }
 }
 
+#' List method for asServerObject()
+#'
+#' produces the Julia expression for a list or a dictionary
 setMethod("asServerObject", c("list", "JuliaObject"),
           function(object, prototype)
               .asServerList(object, prototype)
@@ -238,12 +280,14 @@ setMethod("asServerObject", c("list", "JuliaObject"),
 
 typeToJulia <- function(object, prototype) {
     switch(typeof(object),
-           complex = paste0("complex(", typeToJSON(Re(object), prototype, unbox = TRUE), ", ",
-           typeToJSON(Im(object), prototype, unbox = TRUE), ")"),
-           typeToJSON(object, prototype, unbox = TRUE))
+           complex = paste0("complex(", typeToJSON(Re(object), prototype), ", ",
+           typeToJSON(Im(object), prototype), ")"),
+           typeToJSON(object, prototype))
 }
 
-## the default method for JuliaObject is modelled on the overall default method in XR
+#' Default Julia method for asServerObject()
+#'
+#' the default method for JuliaObject is modelled on the overall default method in XR
 setMethod("asServerObject", c("ANY", "JuliaObject"),
            function(object, prototype) {
                if((isS4(object) && !is.null(attr(object, "class"))) ||
@@ -257,21 +301,38 @@ setMethod("asServerObject", c("ANY", "JuliaObject"),
 
 ## these methods are "copied" from XR only to avoid ambiguity (and a warning message) when selecting
 ## Otherwise they score the same as the c("ANY", "JuliaObject") methods
-
+## TODO:  copy man/asServerObject.Rd documentation from XR ??
 for(Class in c("AssignedProxy","ProxyClassObject","ProxyFunction", "name"))
     setMethod("asServerObject", c(Class, "JuliaObject"),
               selectMethod("asServerObject", Class))
 
+#' @describeIn functions
+#' sends the \code{object} to Julia, converting it via methods for
+#' \code{\link[XR]{asServerObject}} and returns a proxy for the converted object.
 juliaSend <- function(object, evaluator = XR::getInterface(.JuliaInterfaceClass))
                           evaluator$Send(object)
+#' @describeIn functions
+#' converts the proxy object that is its argument to an \R{} object.
 juliaGet <- function(object, evaluator = XR::getInterface(.JuliaInterfaceClass))
                           evaluator$Get(object)
 
 ## proxy Julia functions
+#' Proxy Objects in R for Julia Functions
+#'
+#' A class and generator function for proxies in R for Julia functions.
+#'
+#' An object from this class is an R function that is a proxy for a function in Julia. Calls to the R function evaluate
+#' a call to the Julia function.  The arguments in the call are converted to equivalent Julia objects;
+#' these typically include proxy objects for results previously computed through the XRJulia interface.
+#'
+#' @slot name the name of the server language function
+#' @slot module the name of the module, if that needs to be imported
+#' @slot evaluatorClass the class for the evaluator, by default and usually, \code{\link{JuliaInteface}}
 JuliaFunction <- setClass("JuliaFunction",
-                          slots = c(module = "character"),
                           contains = "ProxyFunction")
-
+#' @describeIn JuliaFunction
+#' creates a function object that calls the named Julia function, optionally imported from
+#' the specified module.
 setMethod("initialize", "JuliaFunction",
      function (.Object, name, module = "", evaluator = RJulia(), ...)
     {
@@ -292,6 +353,8 @@ setMethod("initialize", "JuliaFunction",
     }
 )
 
+#' @describeIn functions
+#' Returns the Julia definitionof the specified class, optionally from the module.
 juliaClassDef <- function(Class, module = "", ..., .ev = RJulia()) {
     if(nzchar(module))
         .ev$Import(module, Class)
@@ -313,17 +376,6 @@ setJuliaClass <- function (juliaType, module = "", fields = character(),
         where = where, evaluatorClass = "JuliaInterface",
         proxyObjectClass = proxyObjectClass, language = "Julia", ...)
 }
-
-## objects converted from Julia
-from_Julia <- setClass("from_Julia", contains = "from_Server")
-
-setMethod("initialize", "from_Julia",
-          function(.Object, ...) {
-              .Object@language <- "Julia"
-              .Object@module <- ""
-              .Object@Class <- "<UNDEFINED>"
-              callNextMethod()
-          })
 
 doUnlist <- function(serverClass)
     length(serverClass) == 1 && !grepl("Array.Any,", serverClass) &&
