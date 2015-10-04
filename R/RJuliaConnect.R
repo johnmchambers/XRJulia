@@ -299,8 +299,9 @@ setMethod("asServerObject", c("ANY", "JuliaObject"),
                   typeToJulia(object, prototype)
            })
 
-## these methods are "copied" from XR only to avoid ambiguity (and a warning message) when selecting
-## Otherwise they score the same as the c("ANY", "JuliaObject") methods
+## these methods are "copied" from XR only to avoid ambiguity when selecting
+## Otherwise they score the same as the c("ANY", "JuliaObject") method
+## which would be wrong if selected (and either way, a message is printed).
 ## TODO:  copy man/asServerObject.Rd documentation from XR ??
 for(Class in c("AssignedProxy","ProxyClassObject","ProxyFunction", "name"))
     setMethod("asServerObject", c(Class, "JuliaObject"),
