@@ -199,7 +199,7 @@ jlFindJulia <- function() {
         if(nzchar(src)) {
             ## try either the standard Julia source, or the directory above bin, etc.
             trybin <- paste(src, "usr","bin","julia", sep=.Platform$file.sep)
-            if(file.exist(trybin))
+            if(file.exists(trybin))
                 envvar <- trybin
             else {
                 trybin <- paste(src, "julia", sep=.Platform$file.sep)
@@ -303,7 +303,8 @@ setMethod("asServerObject", c("ANY", "JuliaObject"),
 ## Otherwise they score the same as the c("ANY", "JuliaObject") method
 ## which would be wrong if selected (and either way, a message is printed).
 ## TODO:  copy man/asServerObject.Rd documentation from XR ??
-for(Class in c("AssignedProxy","ProxyClassObject","ProxyFunction", "name"))
+.copyFromXR <- c("AssignedProxy","ProxyClassObject","ProxyFunction", "name")
+for(Class in .copyFromXR)
     setMethod("asServerObject", c(Class, "JuliaObject"),
               selectMethod("asServerObject", Class))
 
