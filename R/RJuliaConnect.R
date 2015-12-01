@@ -356,7 +356,7 @@ setMethod("initialize", "JuliaFunction",
 )
 
 #' @describeIn functions
-#' Returns the Julia definitionof the specified class, optionally from the module.
+#' Returns the Julia definition of the specified class, optionally from the module.
 juliaClassDef <- function(Class, module = "", ..., .ev = RJulia()) {
     if(nzchar(module))
         .ev$Import(module, Class)
