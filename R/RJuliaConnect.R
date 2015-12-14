@@ -119,40 +119,55 @@ the unparamaterized version will be a secondary match.'
 ## Programming methods
 JuliaInterface$methods(
     ServerAddToPath = function(serverDirectory, serverPos = NA) {
+        'Julia version of the AddToPath method.'
         if(is.na(serverPos))
             Call("push!", as.name("LOAD_PATH"), serverDirectory)
         else
             Call("insert!", as.name("LOAD_PATH"), serverPos, serverDirectory)
     },
-    Import = function (module = "", ...) {
+    Import = function (module = "", ..., .command = "import") {
+        'import the specified Julia module with the names provided. The actual import will paste module
+and object names with an intervening ".", meaning the names will be available unqualified.  May also
+be used to invoke the "using" command by giving that as the  .command= argument. In this case
+multiple modules can be imported by supplying a vector of length > 1 for module.'
         members <- unlist(c(...))
         if(length(members)) {
             if(nzchar(module))
                 members <- paste(module, members, sep =".")
         }
-        else if(nzchar(module))
-            members <- module
-        else
-            return(FALSE)
-        imported <- sapply(members, function(x) base::exists(x, envir = modules))
-        if (all(imported))
-            return(TRUE)
-        members <- members[!imported]
-        Command(paste("import",paste(members, collapse = ", ")))
+        else {
+            if(identical(.command, "using") && length(module) > 1)
+                module <- paste(module, collapse = ", ") # allow multiple modules for using
+            if(nzchar(module))
+                members <- module
+            else
+                return(FALSE)
+        }
+        ## TODO:  the check here only works currently for "import" not "using
+        if(identical(.command, "import")) {
+            imported <- sapply(members, function(x) base::exists(x, envir = modules))
+            if (all(imported))
+                return(TRUE)
+            members <- members[!imported]
+        }
+        Command(paste(.command, paste(members, collapse = ", ")))
         return(members)
     },
-    ProxyClassName = function(serverClass) {
-        pclass <- callSuper(serverClass)
-        if(is.na(pclass) && grepl("{",serverClass, fixed = TRUE)) { # a templated class
-            baseClass <- gsub("[{].*","", serverClass)
-            callSuper(baseClass) # check for untemplated version
-        }
-        else
-            pclass
-    },
-    Source = function(filename) {
-        Call("include", filename)
+ProxyClassName = function(serverClass) {
+    'Find the proxy class name for a Julia composite type.  Uses the templated version if that has been
+defined, otherwise the general untemplated one.'
+    pclass <- callSuper(serverClass)
+    if(is.na(pclass) && grepl("{",serverClass, fixed = TRUE)) { # a templated class
+        baseClass <- gsub("[{].*","", serverClass)
+        callSuper(baseClass) # check for untemplated version
     }
+    else
+        pclass
+},
+Source = function(filename) {
+    'Julia version of the $Source() method, using the include command in Julia'
+    Call("include", filename)
+}
 )
 
 #' Function Versions of Methods for Julia Interface evaluators.
@@ -164,19 +179,38 @@ JuliaInterface$methods(
 NULL
 
 #' @describeIn functions
-#' import the modules or objects
-juliaImport <- function(..., evaluator = RJulia())
-    evaluator$Import(...)
-
-#' @describeIn functions
 #' evaluate the file of Julia source.
 juliaSource <- function(..., evaluator = RJulia())
     evaluator$Source(...)
 
+
 #' @describeIn functions
-#' add the directory to the path for finding Julia functions and types
-juliaAddToPath <- function(..., evaluator = RJulia())
-    evaluator$AddToPath(...)
+#' adds the directory specified to the search path for all future Julia evaluator objects.
+#' If called from the source directory of a package during installation, also sets up
+#' a load action for that package.  If you want to add the path ONLY to one
+#' evaluator, you must supply that as the \code{evaluator} argument.
+#' @param directory the directory to add, defaults to "julia"
+#' @param package,pos arguments \code{package} and \code{pos} to the method, usually omitted.
+juliaAddToPath <- function(directory = "julia", package = utils::packageName(topenv(parent.frame())), pos = NA,  evaluator) {
+    if(missing(evaluator))
+        XR::serverAddToPath("JuliaInterface", directory, package, pos)
+    else
+        evaluator$AddToPath(directory, package, pos)
+}
+
+#' @describeIn functions
+#' adds the module information specified to the modules imported for future Julia evaluator objects.
+#'
+#' Like \code{juliaAddToPath()} if called from the source directory of a package during installation, also sets up
+#' a load action for that package.
+#' @param module the directory to add, defaults to "julia"
+#' @param ...  arguments for the Julia \code{from...import} version~.
+juliaImport <- function(module, ...,  evaluator) {
+    if(missing(evaluator))
+        XR::serverImport("JuliaInterface",module, ...)
+    else
+        evaluator$Import(module, ...)
+}
 
 .JuliaInterfaceClass <- getClass("JuliaInterface")
 
@@ -272,10 +306,16 @@ setMethod("asServerObject", c("array", "JuliaObject"),
 
 #' List method for asServerObject()
 #'
-#' produces the Julia expression for a list or a dictionary
+#' For "plain" lists, produces the Julia expression for a list or a dictionary;
+#' with other attributes, uses the .RClass form.
 setMethod("asServerObject", c("list", "JuliaObject"),
-          function(object, prototype)
-              .asServerList(object, prototype)
+          function(object, prototype){
+              attrs <- attributes(object)
+              if(is.null(attrs) || identical(names(attrs), "names"))
+                  .asServerList(object, prototype)
+              else
+                  .asServerList(XR::objectDictionary(object), prototype)
+          }
           )
 
 typeToJulia <- function(object, prototype) {
@@ -317,6 +357,26 @@ juliaSend <- function(object, evaluator = XR::getInterface(.JuliaInterfaceClass)
 #' converts the proxy object that is its argument to an \R{} object.
 juliaGet <- function(object, evaluator = XR::getInterface(.JuliaInterfaceClass))
                           evaluator$Get(object)
+#' @describeIn functions
+#' evaluate the expression in Julia, with substitution
+juliaEval <- function(expr, ..., evaluator = XR::getInterface(.JuliaInterfaceClass))
+    evaluator$Eval(expr, ...)
+
+#' @describeIn functions
+#' evaluate the command in Julia, with substitution
+juliaCommand <- function(expr, ..., evaluator = XR::getInterface(.JuliaInterfaceClass))
+    evaluator$Command(expr, ...)
+
+
+#' @describeIn functions
+#' Print an object in Julia.  Either one object or several arguments as owould
+#' be given to the Eval() method.
+juliaPrint <- function(object, ..., evaluator = XRJulia::RJulia()) {
+    if(length(list(...)))
+       object <- evaluator$Eval(object, ...)
+    evaluator$Command("print(%s)",object)
+    cat("\n")
+}
 
 ## proxy Julia functions
 #' Proxy Objects in R for Julia Functions
