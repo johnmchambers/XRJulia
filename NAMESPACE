@@ -8,7 +8,7 @@ export(JuliaFunction,JuliaInterface,JuliaObject)
 exportClass(JuliaFunction,JuliaInterface,JuliaObject)
 
 export( juliaAddToPath, juliaClassDef, juliaGet, juliaImport, juliaSend, juliaSource )
-export(juliaEval, juliaCommand, juliaPrint)
+export(juliaEval, juliaCommand, juliaSerialize, juliaUnserialize, juliaPrint)
 
 export(setJuliaClass)
 

@@ -14,7 +14,19 @@ JuliaInterface$methods(
                            languageName <<- "Julia"
                            prototypeObject <<- JuliaObject()
                            callSuper(...) # set fields
-                           args <- list(...)
+                           if(is(connection, "connection")) {
+                               if(is(connection, "sockconn") && isOpen(connection))
+                                   return()
+                               else {
+                                   if(!is(connection, "sockconn"))
+                                       msg <- gettextf("got class %s",dQuote(class(connection)))
+                                   else
+                                       msg <- "Socket not open"
+                                   stop(gettextf(
+                                       "Argument connection= should be an open socket connection: %s",
+                                       msg))
+                               }
+                           }
                            ## start a julia proc.
                            if(length(port) == 0 || is.na(port)) { # uninitialized
                                xport <- getOption("JuliaPort")
@@ -183,7 +195,6 @@ NULL
 juliaSource <- function(..., evaluator = RJulia())
     evaluator$Source(...)
 
-
 #' @describeIn functions
 #' adds the directory specified to the search path for all future Julia evaluator objects.
 #' If called from the source directory of a package during installation, also sets up
@@ -348,6 +359,15 @@ for(Class in .copyFromXR)
     setMethod("asServerObject", c(Class, "JuliaObject"),
               selectMethod("asServerObject", Class))
 
+#' Function Versions of Methods for Julia Interface evaluators.
+#'
+#' @name functions
+#' @param object an R object, to be sent to Julia (\code{juliaSend()}) or a proxy object for
+#' the Julia object to be converted (\code{juliaGet()}).
+#' @param evaluator The evaluator object to use.  By default, and usually, the current evaluator
+#' is used, and one is started if none has been.
+NULL
+
 #' @describeIn functions
 #' sends the \code{object} to Julia, converting it via methods for
 #' \code{\link[XR]{asServerObject}} and returns a proxy for the converted object.
@@ -356,17 +376,7 @@ juliaSend <- function(object, evaluator = XR::getInterface(.JuliaInterfaceClass)
 #' @describeIn functions
 #' converts the proxy object that is its argument to an \R{} object.
 juliaGet <- function(object, evaluator = XR::getInterface(.JuliaInterfaceClass))
-                          evaluator$Get(object)
-#' @describeIn functions
-#' evaluate the expression in Julia, with substitution
-juliaEval <- function(expr, ..., evaluator = XR::getInterface(.JuliaInterfaceClass))
-    evaluator$Eval(expr, ...)
-
-#' @describeIn functions
-#' evaluate the command in Julia, with substitution
-juliaCommand <- function(expr, ..., evaluator = XR::getInterface(.JuliaInterfaceClass))
-    evaluator$Command(expr, ...)
-
+    evaluator$Get(object)
 
 #' @describeIn functions
 #' Print an object in Julia.  Either one object or several arguments as owould
@@ -376,6 +386,61 @@ juliaPrint <- function(object, ..., evaluator = XRJulia::RJulia()) {
        object <- evaluator$Eval(object, ...)
     evaluator$Command("print(%s)",object)
     cat("\n")
+}
+
+#' @describeIn functions
+#' evaluates the \code{expr} string subsituting the arguments.  See the corresponding evaluator
+#' method for details.
+juliaEval <- function(expr, ..., evaluator = XR::getInterface(.JuliaInterfaceClass))
+    evaluator$Eval(expr, ...)
+
+#' @describeIn functions
+#' evaluates the \code{expr} string subsituting the arguments; used for a command that is not
+#' an expression.
+juliaCommand <- function(expr, ..., evaluator = XR::getInterface(.JuliaInterfaceClass))
+    evaluator$Command(expr, ...)
+
+#' @describeIn functions
+#' converts the proxy object that is its argument to an \R{} object.
+juliaGet <- function(object, evaluator = XR::getInterface(.JuliaInterfaceClass))
+    evaluator$Get(object)
+
+#' @describeIn functions
+#' serialize the \code{object} in Julia, via \code{pickle}
+juliaSerialize <- function(object,  file, append = FALSE, evaluator = XR::getInterface(.JuliaInterfaceClass))
+    evaluator$Serialize(object, file, append)
+
+#' @describeIn functions
+#' unserialize the file in Julia, via \code{pickle}
+juliaUnserialize <- function(file, all = FALSE, evaluator = XR::getInterface(.JuliaInterfaceClass))
+    evaluator$Unserialize(file, all)
+
+#' Import a Julia module or add a directory to the Julia Search Path
+#'
+#' adds the module information specified to the modules imported for Julia evaluators.
+#'
+#' If called from the source directory of a package during installation, both \code{juliaImport}
+#' and \code{juliaAddToPath()} also set up
+#' a load action for that package.  The functional versions, not the methods themselves, should
+#' be called from package source files to ensure that the load actions are created.
+#' @param ...  arguments for the \code{$Import()} method. See the method documentation for details.
+juliaImport <- function( ...,  evaluator) {
+    if(missing(evaluator))
+        XR::serverImport("JuliaInterface", ...)
+    else
+        evaluator$Import(...)
+}
+
+#' @describeIn juliaImport
+#' adds the directory specified to the search path for Julia objects.
+#' @param directory the directory to add, defaults to "julia"
+#' @param package,pos arguments \code{package} and \code{pos} to the method, usually omitted.
+#' @param evaluator The evaluator object to use. Supplying this argument suppresses the load action.
+juliaAddToPath <- function(directory = "julia", package = utils::packageName(topenv(parent.frame())), pos = NA,  evaluator) {
+    if(missing(evaluator))
+        XR::serverAddToPath("JuliaInterface", directory, package, pos)
+    else
+        evaluator$AddToPath(directory, package, pos)
 }
 
 ## proxy Julia functions
