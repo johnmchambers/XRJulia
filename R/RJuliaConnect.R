@@ -367,6 +367,12 @@ juliaEval <- function(expr, ..., evaluator = XR::getInterface(.JuliaInterfaceCla
 juliaCommand <- function(expr, ..., evaluator = XR::getInterface(.JuliaInterfaceClass))
     evaluator$Command(expr, ...)
 
+#' @describeIn functions
+#' call the function in Julia, with arguments given; expr is the string name of the function
+juliaCall <- function(expr, ..., evaluator = XR::getInterface(.JuliaInterfaceClass))
+    evaluator$Call(expr, ...)
+
+
 
 #' @describeIn functions
 #' Print an object in Julia.  Either one object or several arguments as owould
