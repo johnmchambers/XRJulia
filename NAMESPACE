@@ -8,11 +8,8 @@ export(JuliaFunction,JuliaInterface,JuliaObject)
 exportClass(JuliaFunction,JuliaInterface,JuliaObject)
 
 export( juliaAddToPath, juliaClassDef, juliaGet, juliaImport, juliaSend, juliaSource )
-<<<<<<< HEAD
-export(juliaEval, juliaCommand, juliaPrint, juliaCall)
-=======
-export(juliaEval, juliaCommand, juliaSerialize, juliaUnserialize, juliaPrint)
->>>>>>> origin/master
+
+export(juliaEval, juliaCommand, juliaSerialize, juliaUnserialize, juliaPrint, juliaCall)
 
 export(setJuliaClass)
 

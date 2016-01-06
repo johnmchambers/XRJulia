@@ -379,7 +379,7 @@ juliaGet <- function(object, evaluator = XR::getInterface(.JuliaInterfaceClass))
     evaluator$Get(object)
 
 #' @describeIn functions
-#' Print an object in Julia.  Either one object or several arguments as owould
+#' Print an object in Julia.  Either one object or several arguments as would
 #' be given to the Eval() method.
 juliaPrint <- function(object, ..., evaluator = XRJulia::RJulia()) {
     if(length(list(...)))
@@ -401,25 +401,22 @@ juliaCommand <- function(expr, ..., evaluator = XR::getInterface(.JuliaInterface
     evaluator$Command(expr, ...)
 
 #' @describeIn functions
-<<<<<<< HEAD
 #' call the function in Julia, with arguments given; expr is the string name of the function
 juliaCall <- function(expr, ..., evaluator = XR::getInterface(.JuliaInterfaceClass))
     evaluator$Call(expr, ...)
 
 
-=======
 #' converts the proxy object that is its argument to an \R{} object.
 juliaGet <- function(object, evaluator = XR::getInterface(.JuliaInterfaceClass))
     evaluator$Get(object)
 
 #' @describeIn functions
-#' serialize the \code{object} in Julia, via \code{pickle}
+#' serialize the \code{object} in Julia
 juliaSerialize <- function(object,  file, append = FALSE, evaluator = XR::getInterface(.JuliaInterfaceClass))
     evaluator$Serialize(object, file, append)
->>>>>>> origin/master
 
 #' @describeIn functions
-#' unserialize the file in Julia, via \code{pickle}
+#' unserialize the file in Julia
 juliaUnserialize <- function(file, all = FALSE, evaluator = XR::getInterface(.JuliaInterfaceClass))
     evaluator$Unserialize(file, all)
 
