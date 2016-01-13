@@ -9,6 +9,6 @@ Description: A Julia interface structured according to the general
 	     form described in package XR and the book (in progress)
 	     "Extending R"
 License: GPL (>= 2)
-Imports: methods, XR
+Imports: methods, XR, jsonlite
 NeedsCompilation: no
 Packaged: 2015-09-10 13:25:41 UTC; jmc
