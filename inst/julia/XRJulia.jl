@@ -313,7 +313,7 @@ function vectorR(x)
         value = x
     end
     RObject("vector_R","XR", "S4", None, {"data" => value, "type" => rtype,
-                                          "missing" => mm, "serverClass" => typeStr})
+                                          "missing" => mm})
 end
 
 function fieldNames(what::DataType)
