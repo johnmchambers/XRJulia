@@ -527,3 +527,29 @@ setMethod("asRObject", c("vector_R","JuliaInterface"),
               else
                   value
           })
+
+#' Class for General Julia Composite Type Objects
+#'
+#' The Julia side of the interface will return a general object from a composite type as an R
+#' object of this class.  Its Julia fields (converted to R objects) can be accessed by the \code{$}
+#' operator.
+#'
+#' @slot Class the Julia type.
+#' @slot data the converted Julia data, as a list whose names are the names of the Julia fields.
+setClass("from_Julia", slots = c(Class = "character", data = "list"))
+
+setMethod("show", "from_Julia",
+          function(object) {
+              cat(gettextf("R conversion of Julia object of type %s\n\nJulia fields:\n",
+                           dQuote(object@Class)))
+              show(object@data)
+          })
+
+setMethod("$", "from_Julia",
+          function(x, name) {
+              i <- match(name, names(x@data))
+              if(is.na(i))
+                  stop(gettextf("Julia object of type %s has no %s field",
+                                dQuote(x@Class), dQuote(name)))
+              x@data[[i]]
+          })

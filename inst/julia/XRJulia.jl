@@ -239,7 +239,7 @@ function toR(x)
         d[string(i)] = toR(getfield(x, i))
     end
     z["data"] = d
-    obj = RObject("from_Julia")
+    obj = RObject("from_Julia", "XRJulia")
     obj.dataType = "S4"
     obj.slots = z
     toR(obj)

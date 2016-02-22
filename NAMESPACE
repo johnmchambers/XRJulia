@@ -1,7 +1,5 @@
 import(XR)
 
-## exportPattern("^[[:alpha:]]+")
-
 export(RJulia)
 export(juliaClassDef) #? or make into class like PythonClassDef?
 export(JuliaFunction,JuliaInterface,JuliaObject)
@@ -14,3 +12,6 @@ export(juliaEval, juliaCommand, juliaSerialize, juliaUnserialize, juliaName, jul
 export(setJuliaClass)
 
 export(noScalar)
+
+exportClass("from_Julia")
+
