@@ -3,22 +3,46 @@
 \name{functions}
 \alias{functions}
 \alias{juliaAddToPath}
+\alias{juliaCall}
 \alias{juliaClassDef}
+\alias{juliaCommand}
+\alias{juliaEval}
 \alias{juliaGet}
 \alias{juliaImport}
+\alias{juliaName}
+\alias{juliaPrint}
 \alias{juliaSend}
+\alias{juliaSerialize}
 \alias{juliaSource}
+\alias{juliaUnserialize}
 \title{Function Versions of Methods for Julia Interface evaluators.}
 \usage{
-juliaImport(..., evaluator = RJulia())
-
 juliaSource(..., evaluator = RJulia())
 
-juliaAddToPath(..., evaluator = RJulia())
+juliaAddToPath(directory = "julia",
+  package = utils::packageName(topenv(parent.frame())), pos = NA, evaluator)
+
+juliaImport(..., evaluator)
 
 juliaSend(object, evaluator = XR::getInterface(.JuliaInterfaceClass))
 
 juliaGet(object, evaluator = XR::getInterface(.JuliaInterfaceClass))
+
+juliaPrint(object, ..., evaluator = XRJulia::RJulia())
+
+juliaEval(expr, ..., evaluator = XR::getInterface(.JuliaInterfaceClass))
+
+juliaCommand(expr, ..., evaluator = XR::getInterface(.JuliaInterfaceClass))
+
+juliaCall(expr, ..., evaluator = XR::getInterface(.JuliaInterfaceClass))
+
+juliaSerialize(object, file, append = FALSE,
+  evaluator = XR::getInterface(.JuliaInterfaceClass))
+
+juliaUnserialize(file, all = FALSE,
+  evaluator = XR::getInterface(.JuliaInterfaceClass))
+
+juliaName(object)
 
 juliaClassDef(Class, module = "", ..., .ev = RJulia())
 }
@@ -27,23 +51,62 @@ juliaClassDef(Class, module = "", ..., .ev = RJulia())
 
 \item{evaluator}{The evaluator object to use.  By default, and usually, the current evaluator
 is used, and one is started if none has been.}
+
+\item{directory}{the directory to add, defaults to "julia"}
+
+\item{package,pos}{arguments \code{package} and \code{pos} to the method, usually omitted.}
+
+\item{object}{an R object, to be sent to Julia (\code{juliaSend()}) or a proxy object for
+the Julia object to be converted (\code{juliaGet()}).}
+
+\item{module}{the directory to add, defaults to "julia"}
+
+\item{...}{arguments for the Julia \code{from...import} version~.}
+
+\item{evaluator}{The evaluator object to use.  By default, and usually, the current evaluator
+is used, and one is started if none has been.}
 }
 \description{
+Function Versions of Methods for Julia Interface evaluators.
+
 Function Versions of Methods for Julia Interface evaluators.
 }
 \section{Functions}{
 \itemize{
-\item \code{juliaImport}: import the modules or objects
-
 \item \code{juliaSource}: evaluate the file of Julia source.
 
-\item \code{juliaAddToPath}: add the directory to the path for finding Julia functions and types
+\item \code{juliaAddToPath}: adds the directory specified to the search path for all future Julia evaluator objects.
+If called from the source directory of a package during installation, also sets up
+a load action for that package.  If you want to add the path ONLY to one
+evaluator, you must supply that as the \code{evaluator} argument.
+
+\item \code{juliaImport}: adds the module information specified to the modules imported for future Julia evaluator objects.
+
+Like \code{juliaAddToPath()} if called from the source directory of a package during installation, also sets up
+a load action for that package.
 
 \item \code{juliaSend}: sends the \code{object} to Julia, converting it via methods for
 \code{\link[XR]{asServerObject}} and returns a proxy for the converted object.
 
 \item \code{juliaGet}: converts the proxy object that is its argument to an \R{} object.
 
-\item \code{juliaClassDef}: Returns the Julia definitionof the specified class, optionally from the module.
+\item \code{juliaPrint}: Print an object in Julia.  Either one object or several arguments as would
+be given to the Eval() method.
+
+\item \code{juliaEval}: evaluates the \code{expr} string subsituting the arguments.  See the corresponding evaluator
+method for details.
+
+\item \code{juliaCommand}: evaluates the \code{expr} string subsituting the arguments; used for a command that is not
+an expression.
+
+\item \code{juliaCall}: call the function in Julia, with arguments given; expr is the string name of the function
+
+\item \code{juliaSerialize}: serialize the \code{object} in Julia
+
+\item \code{juliaUnserialize}: unserialize the file in Julia
+
+\item \code{juliaName}: return the name by which this proxy object was assigned in Julia
+
+\item \code{juliaClassDef}: Returns the Julia definition of the specified class, optionally from the module.
 }}
 

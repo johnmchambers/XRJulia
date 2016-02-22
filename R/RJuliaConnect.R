@@ -420,6 +420,11 @@ juliaSerialize <- function(object,  file, append = FALSE, evaluator = XR::getInt
 juliaUnserialize <- function(file, all = FALSE, evaluator = XR::getInterface(.JuliaInterfaceClass))
     evaluator$Unserialize(file, all)
 
+#' @describeIn functions
+#' return the name by which this proxy object was assigned in Julia
+juliaName <- function(object)
+    XR::proxyName(object)
+
 #' Import a Julia module or add a directory to the Julia Search Path
 #'
 #' adds the module information specified to the modules imported for Julia evaluators.
