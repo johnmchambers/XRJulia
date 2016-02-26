@@ -232,13 +232,13 @@ end
 ## a general method for toR() constructs an R object of class "from_Julia", the data
 ## part is a dictionary containing the fields
 function toR(x)
-    z = {"Class" =>  string(typeof(x))}
+    z = {"serverClass" =>  string(typeof(x))}
     d = (String => Any)[]
     nn = names(x)
     for i in nn
         d[string(i)] = toR(getfield(x, i))
     end
-    z["data"] = d
+    z["fields"] = d
     obj = RObject("from_Julia", "XRJulia")
     obj.dataType = "S4"
     obj.slots = z
@@ -291,6 +291,9 @@ function vectorR(x)
         else
             rtype = "list"
         end
+    ## <TODO>  In order to handle Julia's scalar types with no R equivalent, there should be
+    ## a mechanism here to set the "type" slot to the actual Julia typeStr, with
+    ## a corresponding mechanism in the method for asROject(), ("vector_R", "JuliaInterface")
     mm = Array(Bool,0) # missing values
     if rtype == "list"
         value = Array(Any, size(x))

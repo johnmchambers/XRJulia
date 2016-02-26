@@ -514,18 +514,20 @@ setJuliaClass <- function (juliaType, module = "", fields = character(),
         proxyObjectClass = proxyObjectClass, language = "Julia", ...)
 }
 
-doUnlist <- function(serverClass)
-    length(serverClass) == 1 && !grepl("Array.Any,", serverClass) &&
-        (grepl("Array.Float", serverClass) || grepl("Array.Int", serverClass) ||
-         grepl("Array.[^,]*String", serverClass))
+
+## these are stubs for a mechanism to convert Julia arrays of non-standard types in R
+## See the comments on the toR() methods in XRJulia.jl
+doSpecial <- function(typeStr)
+    FALSE
+doSpecialVector <- function(object)
+    NULL
 
 setMethod("asRObject", c("vector_R","JuliaInterface"),
           function (object, evaluator) {
-              value <- callNextMethod()
-              if(is.list(value) && doUnlist(object@serverClass))
-                  unlist(value)
+              if(doSpecial(object@type))
+                  doSpecialVector(object)
               else
-                  value
+                  callNextMethod()
           })
 
 #' Class for General Julia Composite Type Objects
@@ -534,22 +536,22 @@ setMethod("asRObject", c("vector_R","JuliaInterface"),
 #' object of this class.  Its Julia fields (converted to R objects) can be accessed by the \code{$}
 #' operator.
 #'
-#' @slot Class the Julia type.
-#' @slot data the converted Julia data, as a list whose names are the names of the Julia fields.
-setClass("from_Julia", slots = c(Class = "character", data = "list"))
+#' @slot serverClass the Julia type.
+#' @slot module the Julia module, or ""
+#' @slot fields the converted versioin of the Julia fields; these are accessed by the \code{$} operator.
+setClass("from_Julia", contains = "from_Server")
 
 setMethod("show", "from_Julia",
           function(object) {
-              cat(gettextf("R conversion of Julia object of type %s\n\nJulia fields:\n",
-                           dQuote(object@Class)))
-              show(object@data)
+              cat(gettextf("R conversion of Julia object of composite type %s\n\nJulia fields:\n",
+                           dQuote(object@serverClass)))
+              methods::show(as.list(object@fields))
           })
 
-setMethod("$", "from_Julia",
-          function(x, name) {
-              i <- match(name, names(x@data))
-              if(is.na(i))
-                  stop(gettextf("Julia object of type %s has no %s field",
-                                dQuote(x@Class), dQuote(name)))
-              x@data[[i]]
-          })
+setMethod("initialize", "from_Julia",
+    function (.Object, ...)
+    {
+        .Object@language <- "Julia"
+        callNextMethod(.Object, ..., referenceClass = TRUE)
+    }
+)
