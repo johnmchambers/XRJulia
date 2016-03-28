@@ -179,7 +179,12 @@ defined, otherwise the general untemplated one.'
 Source = function(filename) {
     'Julia version of the $Source() method, using the include command in Julia'
     Call("include", filename)
-}
+},
+    Using = function(...) {
+        'The Julia "using" form of importing.  Arguments are module names.  All the exported
+members of these modules will then be available, without prefix.'
+        Import(c(...), .command = "using")
+    }
 )
 
 #' Function Versions of Methods for Julia Interface evaluators.
