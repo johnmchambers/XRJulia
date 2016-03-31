@@ -165,6 +165,7 @@ function conditionToR(msg, err = None)
 end
 
 RBasic = Union(Number, String, Bool)
+RUnconvertible = Union(DataType, Function)
 
 function treatAsProxy(object)
     true
@@ -245,7 +246,18 @@ function toR(x)
     toR(obj)
 end
 
-toR(x::UnionType) = nothing
+function toR(x::RUnconvertible)
+    z = {"serverClass" => string(typeof(x)),
+         "language" => "Julia"}
+    attr = attributesForR(x)
+    if attr != None
+        z["attributes"] = attr
+    end
+    obj = RObject("Unconvertible","XR")
+    obj.dataType = "S4"
+    obj.slots = z
+    toR(obj)
+end
 
 toR(x::RBasic) = x
 
@@ -283,6 +295,11 @@ function toR{T,N}(x::Array{T,N})
     toR(RObject(Class, "methods", data.dataType, toR(data), {"dim" => toR(vectorR(dim))}))
 ##    toR(RObject(Class, "methods", typeof(data[1]), (vectorR(data)), {"dim" => (vectorR(dim))}))
 end
+
+attributesForR(x) = None
+
+attributesForR(x::DataType) = {"typeName" => string(x)}
+
 
 function vectorR(x)
         typeStr = string(typeof(x))
