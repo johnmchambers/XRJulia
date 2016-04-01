@@ -165,7 +165,11 @@ function conditionToR(msg, err = None)
 end
 
 RBasic = Union(Number, String, Bool)
+<<<<<<< Updated upstream
 RUnconvertible = Union(DataType, Function)
+=======
+RUnconvertible = Union(UnionType, Function, DataType)
+>>>>>>> Stashed changes
 
 function treatAsProxy(object)
     true
@@ -253,7 +257,7 @@ function toR(x::RUnconvertible)
     if attr != None
         z["attributes"] = attr
     end
-    obj = RObject("Unconvertible","XR")
+    obj = RObject("Unconvertible", "XR")
     obj.dataType = "S4"
     obj.slots = z
     toR(obj)

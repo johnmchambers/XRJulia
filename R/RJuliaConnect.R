@@ -538,7 +538,7 @@ setMethod("asRObject", c("vector_R","JuliaInterface"),
 #' Class for General Julia Composite Type Objects
 #'
 #' The Julia side of the interface will return a general object from a composite type as an R
-#' object of this class.  Its Julia fields (converted to R objects) can be accessed by the \code{$}
+#' object of class "from_Julia.  its Julia fields (converted to R objects) can be accessed by the \code{$}
 #' operator.
 #'
 #' @slot serverClass the Julia type.
