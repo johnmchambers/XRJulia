@@ -34,7 +34,7 @@ function fromJSONObject(object::Array{Any, 1})
 end
 
 ## JSON dictionaries are used to encode R classes
-function fromJSONObject(object::Dict{String,Any})
+function fromJSONObject(object::Dict{AbstractString,Any})
     if haskey(object, ".RClass")
         makeRObject(object)
     else
@@ -42,7 +42,7 @@ function fromJSONObject(object::Dict{String,Any})
     end
 end
 
-function makeRObject(object::Dict{String,Any})
+function makeRObject(object::Dict{AbstractString,Any})
     obj = copy(object)
     RClass = pop!(obj, ".RClass") # must be there
     package = pop!(obj, ".package", "")
@@ -96,7 +96,7 @@ function RJuliaCommand(args::Array{Any,1})
     end
 end
 
-function RJuliaGet(key::String)
+function RJuliaGet(key::AbstractString)
     try
         eval(parse(key))
     catch err
@@ -113,7 +113,7 @@ function Rguard(x)
 end
 
 
-function RJuliaEval(expr::String, key::String = "", send = nothing)
+function RJuliaEval(expr::AbstractString, key::AbstractString = "", send = nothing)
     value = nothing; what = "expression"
     try
         if key == ""
@@ -164,12 +164,8 @@ function conditionToR(msg, err = nothing)
     value
 end
 
-RBasic = Union(Number, String, Bool)
-<<<<<<< Updated upstream
-RUnconvertible = Union(DataType, Function)
-=======
-RUnconvertible = Union(UnionType, Function, DataType)
->>>>>>> Stashed changes
+RBasic = Union{Number, AbstractString, Bool}
+RUnconvertible = Union{DataType, Function}
 
 function treatAsProxy(object)
     true
@@ -188,8 +184,8 @@ function objectOrProxy(key, value)
 end
 
 type proxyForR
-    key:: String
-    serverClass:: String
+    key:: AbstractString
+    serverClass:: AbstractString
     length:: Int64
 end
 
@@ -204,15 +200,15 @@ function proxyForR(key, value)
 end
 
 type RObject
-    class::String
-    package::String
-    dataType::String
+    class::AbstractString
+    package::AbstractString
+    dataType::AbstractString
     data::Any
-    slots::Dict{String, Any}
+    slots::Dict{AbstractString, Any}
 end
 
-function RObject(class::String, package::String = "")
-    RObject(class, package, "S4", nothing, Dict{String, Any}())
+function RObject(class::AbstractString, package::AbstractString = "")
+    RObject(class, package, "S4", nothing, Dict{AbstractString, Any}())
 end
 
 ## the toR() method reverses the interpretation back to a dictionary
@@ -238,7 +234,7 @@ end
 ## part is a dictionary containing the fields
 function toR(x)
     z = {"serverClass" =>  string(typeof(x))}
-    d = (String => Any)[]
+    d = (AbstractString => Any)[]
     nn = fieldnames(x)
     for i in nn
         d[string(i)] = toR(getfield(x, i))
