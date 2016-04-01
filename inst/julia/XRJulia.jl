@@ -1,7 +1,24 @@
 module XRJulia
 
 export RJuliaCommand, toR, RObject, vectorR, conditionToR
-import JSON
+
+## import JSON, adding package the first time if not available.
+## Julia's try statement only works on function calls, so a kludge is needed
+## to put the import statement into a try
+importExpr = parse("import JSON")
+try
+    eval(importExpr)
+catch err
+    try
+        write(STDERR, "Trying to add Julia package JSON; expect some messages\n")
+        Pkg.add("JSON")
+        eval(importExpr)
+    catch err
+        write(STDERR, "Unable to add and import JSON: ")
+        showerror(STDERR, err)
+        error()
+    end
+end
 
 ### Revised, starting 2015-02-07 to use general R object encoding.
 
@@ -53,17 +70,17 @@ function makeRObject(object::Dict{AbstractString,Any})
 end
 
 ## tables for converting R type/class to Julia:  NOT CURRENTLY USED
-juliaTypes = { "integer" => Int64, "numeric" => Float64, "character" => ASCIIString,
-                "logical" => Bool,  "double" => Float64}
+juliaTypes = Dict{ASCIIString,DataType}( "integer" => Int64, "numeric" => Float64, "character" => ASCIIString,
+                "logical" => Bool,  "double" => Float64)
 
-juliaArrayTypes = { "integer" => Array{Int64,1}, "numeric" => Array{Float64,1},
+juliaArrayTypes = Dict{ASCIIString,DataType}( "integer" => Array{Int64,1}, "numeric" => Array{Float64,1},
                      "character" => Array{ASCIIString,1},
-                     "logical" => Array{Bool,1}, "double" => Array{Float64,1} }
+                     "logical" => Array{Bool,1}, "double" => Array{Float64,1} )
 
 ### Converting Array{} types in Julia to basic R vector classes (Not actual typeof())
-RTypes = {"Array{Int64,1}" => "integer", "Array{Float64,1}" => "numeric", "Array{ASCIIString,1}" => "character",
+RTypes = Dict{ASCIIString, ASCIIString}("Array{Int64,1}" => "integer", "Array{Float64,1}" => "numeric", "Array{ASCIIString,1}" => "character",
           "Array{Complex{Float64},1}" => "complex",
-          "Array{Bool,1}" => "logical", "Array{Any,1}" => "list" }
+          "Array{Bool,1}" => "logical", "Array{Any,1}" => "list" )
 
 ## the default method:  No idea what to do; presumably junk on the connectio.
 function RJuliaCommand(command)
@@ -147,9 +164,9 @@ function RJuliaQuit()
 end
 
 ## the names in this table need to match the jlSendTask calls in  RJuliaConnect.R
-TaskFunctions = { "get" => RJuliaGet,
+TaskFunctions = Dict{ASCIIString, Function}( "get" => RJuliaGet,
                   "eval" => RJuliaEval,
-                 "remove" => RJuliaRemove, "quit" => RJuliaQuit}
+                 "remove" => RJuliaRemove, "quit" => RJuliaQuit)
 
 ## construct the representation of an R object of class InterfaceError
 function conditionToR(msg, err = nothing)
@@ -160,7 +177,7 @@ function conditionToR(msg, err = nothing)
         write(STDERR, "\n")
     end
     value = RObject("InterfaceError", "XR")
-    value.slots = {"message" => msg} # could one derive expr from err object?
+    value.slots = Dict{AbstractString, Any}("message" => msg) # could one derive expr from err object?
     value
 end
 
@@ -199,16 +216,17 @@ function proxyForR(key, value)
     proxyForR(key, string(typeof(value)), len)
 end
 
+RName = Union{ASCIIString} # placeholder for future change to AbstractString,or ....
 type RObject
-    class::AbstractString
-    package::AbstractString
-    dataType::AbstractString
+    class::RName
+    package::RName
+    dataType::RName
     data::Any
-    slots::Dict{AbstractString, Any}
+    slots::Dict{RName, Any}
 end
 
-function RObject(class::AbstractString, package::AbstractString = "")
-    RObject(class, package, "S4", nothing, Dict{AbstractString, Any}())
+function RObject(class::RName, package::RName = "")
+    RObject(class, package, "S4", nothing, Dict{RName, Any}())
 end
 
 ## the toR() method reverses the interpretation back to a dictionary
@@ -223,7 +241,7 @@ function toR(x::RObject)
 end
 
 function toR(x::proxyForR)
-    z = { ".Data" => x.key }
+    z = Dict{RName, Any}( ".Data" => x.key )
     z["size"] = x.length; z["serverClass"] = x.serverClass
     z["module"] = "" #? any way to find the module for a type dyamically?
     z[".RClass"] = "AssignedProxy"; z[".package"] = "XR"; z[".type"] = "character"
@@ -233,8 +251,8 @@ end
 ## a general method for toR() constructs an R object of class "from_Julia", the data
 ## part is a dictionary containing the fields
 function toR(x)
-    z = {"serverClass" =>  string(typeof(x))}
-    d = (AbstractString => Any)[]
+    z = Dict{RName, Any}("serverClass" =>  string(typeof(x)))
+    d = Dict{RName => Any}()
     nn = fieldnames(x)
     for i in nn
         d[string(i)] = toR(getfield(x, i))
@@ -247,8 +265,8 @@ function toR(x)
 end
 
 function toR(x::RUnconvertible)
-    z = {"serverClass" => string(typeof(x)),
-         "language" => "Julia"}
+    z = Dict{RName, Any}("serverClass" => string(typeof(x)),
+         "language" => "Julia")
     attr = attributesForR(x)
     if attr != nothing
         z["attributes"] = attr
@@ -292,13 +310,13 @@ function toR{T,N}(x::Array{T,N})
     end
     n = prod(dim)
     data = vectorR(reshape(x, n))
-    toR(RObject(Class, "methods", data.dataType, toR(data), {"dim" => toR(vectorR(dim))}))
-##    toR(RObject(Class, "methods", typeof(data[1]), (vectorR(data)), {"dim" => (vectorR(dim))}))
+    toR(RObject(Class, "methods", data.dataType, toR(data),
+                Dict{RName, Any}("dim" => toR(vectorR(dim)))))
 end
 
 attributesForR(x) = nothing
 
-attributesForR(x::DataType) = {"typeName" => string(x)}
+attributesForR(x::DataType) = Dict{RName, Any}("typeName" => string(x))
 
 
 function vectorR(x)
@@ -332,8 +350,9 @@ function vectorR(x)
     else
         value = x
     end
-    RObject("vector_R","XR", "S4", nothing, {"data" => value, "type" => rtype,
-                                          "missing" => mm})
+    slots = Dict{RName, Any}("data" => value, "type" => rtype,
+                                          "missing" => mm)
+    RObject("vector_R","XR", "S4", nothing, slots)
 end
 
 function fieldNames(what::DataType)
@@ -349,10 +368,10 @@ end
 function classInfo(what::DataType)
     fields = fieldNames(what)
     if what.mutable
-        readOnly = Nothing
+        readOnly = nothing
     else
         readOnly = fields
     end
-    { "fields" => fields, "readOnly" => readOnly }
+     Dict{RName, Any}("fields" => fields, "readOnly" => readOnly )
 end
 end #module XRJulia

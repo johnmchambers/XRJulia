@@ -4,24 +4,7 @@ push!(LOAD_PATH, rjulia_lib)
 
 using XRJulia
 
-## import JSON, adding package the first time if not available.
-## Julia's try statement only works on function calls, so a kludge is needed
-## to put the import statement into a try
-importExpr = parse("import JSON")
-try
-    eval(importExpr)
-catch err
-    try
-        write(STDERR, "Trying to add Julia package JSON; expect some messages\n")
-        Pkg.add("JSON")
-        eval(importExpr)
-    catch err
-        write(STDERR, "Unable to add and import JSON: ")
-        showerror(STDERR, err)
-        error()
-    end
-end
-
+import JSON
 
 ## start evaluator
 
@@ -32,7 +15,7 @@ verbose = haskey(ENV, "JuliaVerbose")
 ## all the ENV's should be in a try
 RJuliaSource = ENV["RJuliaSource"] # set in R when jlProc() object initialized
 
-RJuliaPort = parseint(ENV["RJuliaPort"])
+RJuliaPort = parse(Int,ENV["RJuliaPort"])
 if(verbose)
   show(string("Starting socket on port ",RJuliaPort))
 end
