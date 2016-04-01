@@ -47,7 +47,7 @@ function makeRObject(object::Dict{String,Any})
     RClass = pop!(obj, ".RClass") # must be there
     package = pop!(obj, ".package", "")
     Rtype = pop!(obj, ".type", "S4")
-    data = pop!(obj, ".Data", None)
+    data = pop!(obj, ".Data", nothing)
     delete!(obj, ".extends") # we don't use this
     RObject(RClass, package, Rtype, data, obj)
 end
@@ -113,13 +113,13 @@ function Rguard(x)
 end
 
 
-function RJuliaEval(expr::String, key::String = "", send = None)
-    value = None; what = "expression"
+function RJuliaEval(expr::String, key::String = "", send = nothing)
+    value = nothing; what = "expression"
     try
         if key == ""
             what = "command"
             eval(parse(expr))
-            return None
+            return nothing
         else
             eval(parse(string(key, " = Rguard(", expr, ")")))
             value = eval(parse(key))
@@ -128,7 +128,7 @@ function RJuliaEval(expr::String, key::String = "", send = None)
         msg = string("Evaluating Julia ", what, ": ", JSON.string(expr))
         return conditionToR(msg, err)
     end
-    if send == None || send == nothing
+    if send == nothing
         objectOrProxy(key, value)
     else
         if send == "TRUE" # the R side sends NA or the character string "TRUE", "FALSE"
@@ -152,8 +152,8 @@ TaskFunctions = { "get" => RJuliaGet,
                  "remove" => RJuliaRemove, "quit" => RJuliaQuit}
 
 ## construct the representation of an R object of class InterfaceError
-function conditionToR(msg, err = None)
-    if err != None && err != nothing
+function conditionToR(msg, err = nothing)
+    if err != nothing
         ## would be better to capture the detailed error message somewhere?
         write(STDERR, "Julia error: ")
         showerror(STDERR, err)
@@ -212,7 +212,7 @@ type RObject
 end
 
 function RObject(class::String, package::String = "")
-    RObject(class, package, "S4", None, Dict{String, Any}())
+    RObject(class, package, "S4", nothing, Dict{String, Any}())
 end
 
 ## the toR() method reverses the interpretation back to a dictionary
@@ -220,7 +220,7 @@ end
 function toR(x::RObject)
     z = copy(x.slots)
     z[".RClass"] = x.class; z[".package"] = x.package; z[".type"] = x.dataType
-    if x.data != None
+    if x.data != nothing
         z[".Data"] = x.data
     end
     z
@@ -239,7 +239,7 @@ end
 function toR(x)
     z = {"serverClass" =>  string(typeof(x))}
     d = (String => Any)[]
-    nn = names(x)
+    nn = fieldnames(x)
     for i in nn
         d[string(i)] = toR(getfield(x, i))
     end
@@ -254,7 +254,7 @@ function toR(x::RUnconvertible)
     z = {"serverClass" => string(typeof(x)),
          "language" => "Julia"}
     attr = attributesForR(x)
-    if attr != None
+    if attr != nothing
         z["attributes"] = attr
     end
     obj = RObject("Unconvertible", "XR")
@@ -300,7 +300,7 @@ function toR{T,N}(x::Array{T,N})
 ##    toR(RObject(Class, "methods", typeof(data[1]), (vectorR(data)), {"dim" => (vectorR(dim))}))
 end
 
-attributesForR(x) = None
+attributesForR(x) = nothing
 
 attributesForR(x::DataType) = {"typeName" => string(x)}
 
@@ -336,12 +336,12 @@ function vectorR(x)
     else
         value = x
     end
-    RObject("vector_R","XR", "S4", None, {"data" => value, "type" => rtype,
+    RObject("vector_R","XR", "S4", nothing, {"data" => value, "type" => rtype,
                                           "missing" => mm})
 end
 
 function fieldNames(what::DataType)
-    syms = names(what)
+    syms = fieldnames(what)
     n = length(syms)
     fields = Array(ASCIIString, n)
     for i in 1:n
