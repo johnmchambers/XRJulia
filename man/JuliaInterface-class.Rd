@@ -41,5 +41,8 @@ be the simple strings or logical value expected.}
 \item{\code{Source(filename)}}{Parse and evaluate the contents of the file.  This method is likely to be overriden for particular langauges
 with a directive to include the contents of the file.  The `XR` version reads the file and processes the entire contents
 as a single string, newlines inserted between lines of the file.}
+
+\item{\code{Using(...)}}{The Julia "using" form of importing.  Arguments are module names.  All the exported
+members of these modules will then be available, without prefix.}
 }}
 

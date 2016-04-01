@@ -12,8 +12,10 @@ operator.
 \section{Slots}{
 
 \describe{
-\item{\code{Class}}{the Julia type.}
+\item{\code{serverClass}}{the Julia type.}
 
-\item{\code{data}}{the converted Julia data, as a list whose names are the names of the Julia fields.}
+\item{\code{module}}{the Julia module, or ""}
+
+\item{\code{fields}}{the converted versioin of the Julia fields; these are accessed by the \code{$} operator.}
 }}
 
