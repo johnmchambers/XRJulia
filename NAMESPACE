@@ -5,7 +5,7 @@ export(juliaClassDef) #? or make into class like PythonClassDef?
 export(JuliaFunction,JuliaInterface,JuliaObject)
 exportClass(JuliaFunction,JuliaInterface,JuliaObject)
 
-export( juliaAddToPath, juliaClassDef, juliaGet, juliaImport, juliaSend, juliaSource )
+export( juliaAddToPath, juliaClassDef, juliaGet, juliaImport, juliaUsing, juliaSend, juliaSource )
 
 export(juliaEval, juliaCommand, juliaSerialize, juliaUnserialize, juliaName, juliaPrint, juliaCall)
 

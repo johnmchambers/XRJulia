@@ -13,7 +13,7 @@ JuliaInterface$methods(
                        initialize = function(..., startJulia = identical(host, "localhost"), verbose = FALSE){
                            languageName <<- "Julia"
                            prototypeObject <<- JuliaObject()
-                           callSuper(...) # set fields
+                           initFields(...) # set fields, but wait for callSuper()
                            if(is(connection, "connection")) {
                                if(is(connection, "sockconn") && isOpen(connection))
                                    return()
@@ -79,6 +79,8 @@ JuliaInterface$methods(
                                stop(gettextf("Unable to start Julia connection on port %s: %s",
                                              port, sc$message))
                            connection <<- sc
+                           ## now, actions such as setting the path can be performed
+                           callSuper()
                        })
 
 ## The definition of Julia-dependent methods
@@ -137,33 +139,19 @@ JuliaInterface$methods(
         else
             Call("insert!", as.name("LOAD_PATH"), serverPos, serverDirectory)
     },
-    Import = function (module = "", ..., .command = "import") {
-        'import the specified Julia module with the names provided. The actual import will paste module
-and object names with an intervening ".", meaning the names will be available unqualified.  May also
-be used to invoke the "using" command by giving that as the  .command= argument. In this case
-multiple modules can be imported by supplying a vector of length > 1 for module.'
+    Import = function (module = "", ..., .command = if(identical(members, "*")) "using" else "import") {
+        'import the specified Julia module, optionally for the names provided in the "..."  arguments.  May also be used to invoke the "using" command by giving "*" as the names. In this case multiple modules can be imported by supplying a vector of length > 1 for module. All the exported objects in those modules will be available unqualified.'
         members <- unlist(c(...))
-        if(length(members)) {
-            if(nzchar(module))
-                members <- paste(module, members, sep =".")
-        }
-        else {
-            if(identical(.command, "using") && length(module) > 1)
-                module <- paste(module, collapse = ", ") # allow multiple modules for using
-            if(nzchar(module))
-                members <- module
-            else
-                return(FALSE)
-        }
-        ## TODO:  the check here only works currently for "import" not "using
-        if(identical(.command, "import")) {
-            imported <- sapply(members, function(x) base::exists(x, envir = modules))
-            if (all(imported))
-                return(TRUE)
-            members <- members[!imported]
-        }
-        Command(paste(.command, paste(members, collapse = ", ")))
-        return(members)
+        switch(.command,
+               using = {
+                   if(length(module) > 1)
+                       module <- paste(module, collapse = ", ") # allow multiple modules for using
+               },
+               import = {
+                   if(length(members))
+                       module <- paste(module, members, sep=".")
+               })
+        Command(paste(.command, module))
     },
 ProxyClassName = function(serverClass) {
     'Find the proxy class name for a Julia composite type.  Uses the templated version if that has been
@@ -206,19 +194,33 @@ juliaSource <- function(..., evaluator = RJulia())
 #' a load action for that package.  If you want to add the path ONLY to one
 #' evaluator, you must supply that as the \code{evaluator} argument.
 #' @param directory the directory to add, defaults to "julia"
-#' @param package,pos arguments \code{package} and \code{pos} to the method, usually omitted.
-juliaAddToPath <- function(directory = "julia", package = utils::packageName(topenv(parent.frame())), pos = NA,  evaluator) {
+#' @param package,pos arguments to the method, usually omitted.
+#' @param evaluator this argument is included only if the action is to be restricted to this particular
+#' evaluator object.
+#' @param where for the load action, omitted if called from a package source file.
+#' Otherwise, must be the environment in which a load action can take place.
+juliaAddToPath <- function(directory = "julia", package = utils::packageName(topenv(parent.frame())), pos = NA,  evaluator,
+                           where = topenv(parent.frame())) {
     if(missing(evaluator))
-        XR::serverAddToPath("JuliaInterface", directory, package, pos)
+        XR::serverAddToPath("JuliaInterface", directory, package, pos, where = where)
     else
         evaluator$AddToPath(directory, package, pos)
 }
 
 #' @describeIn functions
+#' the "using" form of Julia imports:  the module is imported with all exports exposed.
+juliaUsing <- function(module, evaluator) {
+    if(missing(evaluator))
+        juliaImport(module, "*")
+    else
+        juliaImport(module, "*", evaluator = evaluator)
+}
+
+#' @describeIn functions
 #' adds the module information specified to the modules imported for future Julia evaluator objects.
 #'
-#' Like \code{juliaAddToPath()} if called from the source directory of a package during installation, also sets up
-#' a load action for that package.
+#' Add the module to the table of imports for Julia evaluators, and import it to the current evaluator
+#' if there is one.
 #' @param module the directory to add, defaults to "julia"
 #' @param ...  arguments for the Julia \code{from...import} version~.
 juliaImport <- function(module, ...,  evaluator) {
@@ -227,6 +229,8 @@ juliaImport <- function(module, ...,  evaluator) {
     else
         evaluator$Import(module, ...)
 }
+
+
 
 .JuliaInterfaceClass <- getClass("JuliaInterface")
 
@@ -446,17 +450,6 @@ juliaImport <- function( ...,  evaluator) {
         evaluator$Import(...)
 }
 
-#' @describeIn juliaImport
-#' adds the directory specified to the search path for Julia objects.
-#' @param directory the directory to add, defaults to "julia"
-#' @param package,pos arguments \code{package} and \code{pos} to the method, usually omitted.
-#' @param evaluator The evaluator object to use. Supplying this argument suppresses the load action.
-juliaAddToPath <- function(directory = "julia", package = utils::packageName(topenv(parent.frame())), pos = NA,  evaluator) {
-    if(missing(evaluator))
-        XR::serverAddToPath("JuliaInterface", directory, package, pos)
-    else
-        evaluator$AddToPath(directory, package, pos)
-}
 
 ## proxy Julia functions
 #' Proxy Objects in R for Julia Functions
