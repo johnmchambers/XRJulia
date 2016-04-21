@@ -3,14 +3,19 @@
 #' The JuliaInterface class provides an evaluator for computations in Julia, following the structure
 #' in the XR  package.  Proxy functions and classes allow use of the interface with no explicit
 #' reference to the evaluator.  The function \code{RJulia()} returns an evaluator object.
+#'
+#' @field port,host The parameters for communicating with the Julia evaluator.
+#' @field julia\_bin The command for starting a Julia process.
+#' @field connection The connection object through which commands are sent to Julia
 JuliaInterface <- setRefClass("JuliaInterface",
                       fields = c( port = "integer", host = "character",
-                          previous = "integer", julia_bin = "character",
-                          connection = "ANY", julia_modules = "character"),
+                          julia_bin = "character",
+                          connection = "ANY"),
                       contains = "Interface")
 
 JuliaInterface$methods(
-                       initialize = function(..., startJulia = identical(host, "localhost"), verbose = FALSE){
+    initialize = function(..., startJulia = identical(host, "localhost"), verbose = FALSE){
+        'The initialize method attempts to open a socket unless the "connection" field in the call is an open socket.  Else, if the host is the local host an attempt is made to start a Julia process.  See the documentation of the interface class for details.'
                            languageName <<- "Julia"
                            prototypeObject <<- JuliaObject()
                            initFields(...) # set fields, but wait for callSuper()
