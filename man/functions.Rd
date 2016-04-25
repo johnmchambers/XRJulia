@@ -15,12 +15,16 @@
 \alias{juliaSerialize}
 \alias{juliaSource}
 \alias{juliaUnserialize}
+\alias{juliaUsing}
 \title{Function Versions of Methods for Julia Interface evaluators.}
 \usage{
 juliaSource(..., evaluator = RJulia())
 
 juliaAddToPath(directory = "julia",
-  package = utils::packageName(topenv(parent.frame())), pos = NA, evaluator)
+  package = utils::packageName(topenv(parent.frame())), pos = NA, evaluator,
+  where = topenv(parent.frame()))
+
+juliaUsing(module, evaluator)
 
 juliaImport(..., evaluator)
 
@@ -54,12 +58,18 @@ is used, and one is started if none has been.}
 
 \item{directory}{the directory to add, defaults to "julia"}
 
-\item{package,pos}{arguments \code{package} and \code{pos} to the method, usually omitted.}
+\item{package,pos}{arguments to the method, usually omitted.}
+
+\item{where}{for the load action, omitted if called from a package source file.
+Otherwise, must be the environment in which a load action can take place.}
+
+\item{module}{the directory to add, defaults to "julia"}
 
 \item{object}{an R object, to be sent to Julia (\code{juliaSend()}) or a proxy object for
 the Julia object to be converted (\code{juliaGet()}).}
 
-\item{module}{the directory to add, defaults to "julia"}
+\item{evaluator}{this argument is included only if the action is to be restricted to this particular
+evaluator object.}
 
 \item{...}{arguments for the Julia \code{from...import} version~.}
 
@@ -80,10 +90,12 @@ If called from the source directory of a package during installation, also sets 
 a load action for that package.  If you want to add the path ONLY to one
 evaluator, you must supply that as the \code{evaluator} argument.
 
+\item \code{juliaUsing}: the "using" form of Julia imports:  the module is imported with all exports exposed.
+
 \item \code{juliaImport}: adds the module information specified to the modules imported for future Julia evaluator objects.
 
-Like \code{juliaAddToPath()} if called from the source directory of a package during installation, also sets up
-a load action for that package.
+Add the module to the table of imports for Julia evaluators, and import it to the current evaluator
+if there is one.
 
 \item \code{juliaSend}: sends the \code{object} to Julia, converting it via methods for
 \code{\link[XR]{asServerObject}} and returns a proxy for the converted object.

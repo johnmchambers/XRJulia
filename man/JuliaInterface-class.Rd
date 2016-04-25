@@ -10,6 +10,15 @@ The JuliaInterface class provides an evaluator for computations in Julia, follow
 in the XR  package.  Proxy functions and classes allow use of the interface with no explicit
 reference to the evaluator.  The function \code{RJulia()} returns an evaluator object.
 }
+\section{Fields}{
+
+\describe{
+\item{\code{port,host}}{The parameters for communicating with the Julia evaluator.}
+
+\item{\code{julia\_bin}}{The command for starting a Julia process.}
+
+\item{\code{connection}}{The connection object through which commands are sent to Julia}
+}}
 \section{Methods}{
 
 \describe{
@@ -44,5 +53,8 @@ as a single string, newlines inserted between lines of the file.}
 
 \item{\code{Using(...)}}{The Julia "using" form of importing.  Arguments are module names.  All the exported
 members of these modules will then be available, without prefix.}
+
+\item{\code{initialize(...)}}{initializes the evaluator in a language-independent sense.  Should not be called
+until there actually is an evaluator, so that path and import operations can take place}
 }}
 
