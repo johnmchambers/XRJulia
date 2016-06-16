@@ -18,7 +18,7 @@ JuliaInterface$methods(
         'The initialize method attempts to open a socket unless the "connection" field in the call is an open socket.  Else, if the host is the local host an attempt is made to start a Julia process.  See the documentation of the interface class for details.'
                            languageName <<- "Julia"
                            prototypeObject <<- JuliaObject()
-                           initFields(...) # set fields, but wait for callSuper()
+                           callSuper(...) # initialize object & register it
                            if(is(connection, "connection")) {
                                if(is(connection, "sockconn") && isOpen(connection))
                                    return()
@@ -85,7 +85,7 @@ JuliaInterface$methods(
                                              port, sc$message))
                            connection <<- sc
                            ## now, actions such as setting the path can be performed
-                           callSuper()
+                           startupActions()
                        })
 
 ## The definition of Julia-dependent methods
