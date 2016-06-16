@@ -181,7 +181,7 @@ function conditionToR(msg, err = nothing)
     value
 end
 
-RBasic = Union{Number, AbstractString, Bool}
+RBasic = Union{Number, AbstractString, Bool, Void}
 RUnconvertible = Union{DataType, Function}
 
 function treatAsProxy(object)
@@ -252,7 +252,7 @@ end
 ## part is a dictionary containing the fields
 function toR(x)
     z = Dict{RName, Any}("serverClass" =>  string(typeof(x)))
-    d = Dict{RName => Any}()
+    d = Dict{RName, Any}()
     nn = fieldnames(x)
     for i in nn
         d[string(i)] = toR(getfield(x, i))
