@@ -62,7 +62,11 @@ JuliaInterface$methods(
                                juliaStart <-  system.file("julia","RJuliaJSON.jl", package = .packageName)
                                Sys.setenv(RJuliaPort=port, RJuliaHost = host, RJuliaSource=juliaFolder)
                                if(host == "localhost")
+                                 if (.Platform$OS.type == "windows") {
+                                   base::system(paste0(julia_bin, " ", juliaStart), wait = FALSE)
+                                 } else {
                                    base::system(paste0(julia_bin, " < ", juliaStart), wait = FALSE)
+                                 }
                            }
                            ## else, the Julia process should have been started and have called accept()
                            ## for the chosen port
@@ -268,7 +272,7 @@ jlFindJulia <- function() {
         }
     } # if none of these succeeds, `which julia` needs to return something
     if(!nzchar(envvar)) {
-        envvar <- system("which julia", intern = TRUE)
+        envvar <- if (.Platform$OS.type == "windows") system("where julia", intern = TRUE) else system("which julia", intern = TRUE)
         if(!nzchar(envvar))
             stop("No julia executable in search path and JULIA_BIN environment variable not set")
     }
