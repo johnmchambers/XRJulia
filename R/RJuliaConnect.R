@@ -257,7 +257,7 @@ RJulia <- function(...)
 
 #' Find a Julia Executable
 #'
-#' This function looks for an executable Julia application in the local operating system.  The location can be prespecied by
+#' This function looks for an executable Julia application in the local operating system.  The location can be prespecified by
 #' setting environment variable \code{JULIA_BIN}; otherwise, the function looks in various conventional locations
 #' and if that doesn't work, runs a shell command to look for \code{julia}.
 #' @return The location as a character string, unless \code{test} is \code{TRUE}, in which case success or failure
@@ -287,14 +287,15 @@ findJulia <- function(test = FALSE) {
     } # if none of these succeeds, `which julia` needs to return something
     if(!nzchar(envvar)) {
         envvar <- if (.Platform$OS.type == "windows") system("where julia", intern = TRUE) else system("which julia", intern = TRUE)
-        if(test) {
-            Sys.setenv(JULIA_BIN = envvar)
-            return(nzchar(envvar))
-        }
-        if(!nzchar(envvar))
+        if(test)
+            Sys.setenv(JULIA_BIN = envvar) # so next call finds this immediately
+        else if(!nzchar(envvar))
             stop("No julia executable in search path and JULIA_BIN environment variable not set")
     }
-    envvar
+    if(test)
+        nzchar(envvar)
+    else
+        envvar
 }
 
 ## the base for the port used by JuliaInterface objects
