@@ -6,9 +6,8 @@ Date: 2015-03-17
 Author: John M. Chambers
 Maintainer: John Chambers <jmc@stat.stanford.edu>
 Description: A Julia interface structured according to the general
-	     form described in package XR and the book (in progress)
-	     "Extending R"
+	     form described in package XR and in the book "Extending R".
 License: GPL (>= 2)
-Imports: methods, XR, jsonlite
+Imports: methods, XR
 NeedsCompilation: no
 Packaged: 2015-09-10 13:25:41 UTC; jmc

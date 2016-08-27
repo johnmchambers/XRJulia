@@ -51,7 +51,7 @@ JuliaInterface$methods(
                                host <<- "localhost"
                            if(identical(host, "localhost")) {
                                if(length(julia_bin) == 0)
-                                   julia_bin <<- jlFindJulia()
+                                   julia_bin <<- findJulia()
                            }
                            if(verbose)
                                Sys.setenv(JuliaVerbose = 1)
@@ -189,7 +189,7 @@ members of these modules will then be available, without prefix.'
 #' @name functions
 #' @param ... arguments to the corresponding method for an evaluator object.
 #' @param evaluator The evaluator object to use.  By default, and usually, the current evaluator
-#' is used, and one is started if none has been.
+#' is used, and one is started if none has been.  But see the note under \code{juliaImport} for the load actions created in special cases.
 NULL
 
 #' @describeIn functions
@@ -204,8 +204,6 @@ juliaSource <- function(..., evaluator = RJulia())
 #' evaluator, you must supply that as the \code{evaluator} argument.
 #' @param directory the directory to add, defaults to "julia"
 #' @param package,pos arguments to the method, usually omitted.
-#' @param evaluator this argument is included only if the action is to be restricted to this particular
-#' evaluator object.
 #' @param where for the load action, omitted if called from a package source file.
 #' Otherwise, must be the environment in which a load action can take place.
 juliaAddToPath <- function(directory = "julia", package = utils::packageName(topenv(parent.frame())), pos = NA,  evaluator,
@@ -218,6 +216,7 @@ juliaAddToPath <- function(directory = "julia", package = utils::packageName(top
 
 #' @describeIn functions
 #' the "using" form of Julia imports:  the module is imported with all exports exposed.
+#' @param module String identifying a Julia module.
 juliaUsing <- function(module, evaluator) {
     if(missing(evaluator))
         juliaImport(module, "*")
@@ -230,13 +229,15 @@ juliaUsing <- function(module, evaluator) {
 #'
 #' Add the module to the table of imports for Julia evaluators, and import it to the current evaluator
 #' if there is one.
-#' @param module the directory to add, defaults to "julia"
-#' @param ...  arguments for the Julia \code{from...import} version~.
-juliaImport <- function(module, ...,  evaluator) {
+#' If called from the source directory of a package during installation, both \code{juliaImport}
+#' and \code{juliaAddToPath()} also set up
+#' a load action for that package.  The functional versions, not the methods themselves, should
+#' be called from package source files to ensure that the load actions are created.
+juliaImport <- function(...,  evaluator) {
     if(missing(evaluator))
-        XR::serverImport("JuliaInterface",module, ...)
+        XR::serverImport("JuliaInterface", ...)
     else
-        evaluator$Import(module, ...)
+        evaluator$Import(...)
 }
 
 
@@ -249,11 +250,24 @@ juliaImport <- function(module, ...,  evaluator) {
 #' providing argument \code{.makeNew = TRUE} will force a new evaluator.  Otherwise, the current evaluator is
 #' returned.
 #'
+#' @param ... Arguments passed to \code{\link{getInterface}()} but none usually required.
 #' See \code{\link{JuliaInterface}} for details of the evaluator.
 RJulia <- function(...)
     XR::getInterface(.JuliaInterfaceClass, ...)
 
-jlFindJulia <- function() {
+#' Find a Julia Executable
+#'
+#' This function looks for an executable Julia application in the local operating system.  The location can be prespecied by
+#' setting environment variable \code{JULIA_BIN}; otherwise, the function looks in various conventional locations
+#' and if that doesn't work, runs a shell command to look for \code{julia}.
+#' @return The location as a character string, unless \code{test} is \code{TRUE}, in which case success or failure
+#' is returned, and the location found (or the empty string) is saved as the environment varialbe.
+#' If \code{test} is \code{FALSE}, failure to find a Julia
+#' in the current system is an error.
+#' @param test Should the function test for the existence of the application.  Default \code{FALSE}. Calling with
+#' \code{TRUE} is useful to bullet-proof examples or tests for the absence of Julia. If the test search succeeds,
+#' the location is saved in environment variable \code{JULIA_BIN}.
+findJulia <- function(test = FALSE) {
     ## See if a location for the Julia executable has been specified
     ## environment variables JULIA_BIN or JULIA_SRC
     envvar <- Sys.getenv("JULIA_BIN")
@@ -273,6 +287,10 @@ jlFindJulia <- function() {
     } # if none of these succeeds, `which julia` needs to return something
     if(!nzchar(envvar)) {
         envvar <- if (.Platform$OS.type == "windows") system("where julia", intern = TRUE) else system("which julia", intern = TRUE)
+        if(test) {
+            Sys.setenv(JULIA_BIN = envvar)
+            return(nzchar(envvar))
+        }
         if(!nzchar(envvar))
             stop("No julia executable in search path and JULIA_BIN environment variable not set")
     }
@@ -305,11 +323,14 @@ NULL
 #' Proxy objects returned from the Julia interface will be promoted to objects
 #' from a specific R proxy class for their Julia class, if such a class has been defined.
 JuliaObject <- setRefClass("JuliaObject",
-                                contains = "ProxyClassObject")
+                           contains = "ProxyClassObject")
 
-#'  Array method for asServerObject()
-#'
-#' use the reshape() function in Julia to create a suitable multi-way array
+
+## NOT Roxygen  Array method for asServerObject()
+## NOT Roxygen
+## NOT Roxygen use the reshape() function in Julia to create a suitable multi-way array
+## NOT Roxygen @param object The \R object.
+## NOT Roxygen @param prototype The proxy for a prototype of the Julia object, supplied by the evaluator.
 setMethod("asServerObject", c("array", "JuliaObject"),
           function(object, prototype) {
               ## the data part will be a JSON list, forced by the asS4() for length 1
@@ -333,10 +354,12 @@ setMethod("asServerObject", c("array", "JuliaObject"),
     }
 }
 
-#' List method for asServerObject()
-#'
-#' For "plain" lists, produces the Julia expression for a list or a dictionary;
-#' with other attributes, uses the .RClass form.
+## NOT Roxygen List method for asServerObject()
+## NOT Roxygen
+## NOT Roxygen For "plain" lists, produces the Julia expression for a list or a dictionary;
+## NOT Roxygen with other attributes, uses the .RClass form.
+## NOT Roxygen @param object The \R object.
+## NOT Roxygen @param prototype The proxy for a prototype of the Julia object, supplied by the evaluator.
 setMethod("asServerObject", c("list", "JuliaObject"),
           function(object, prototype){
               attrs <- attributes(object)
@@ -354,9 +377,11 @@ typeToJulia <- function(object, prototype) {
            typeToJSON(object, prototype))
 }
 
-#' Default Julia method for asServerObject()
-#'
-#' the default method for JuliaObject is modelled on the overall default method in XR
+## NOT Roxygen Default Julia method for asServerObject()
+## NOT Roxygen
+## NOT Roxygen The default method for JuliaObject is modelled on the overall default method in XR.
+## NOT Roxygen @param object The \R object.
+## NOT Roxygen @param prototype The proxy for a prototype of the Julia object, supplied by the evaluator.
 setMethod("asServerObject", c("ANY", "JuliaObject"),
            function(object, prototype) {
                if((isS4(object) && !is.null(attr(object, "class"))) ||
@@ -376,15 +401,6 @@ setMethod("asServerObject", c("ANY", "JuliaObject"),
 for(Class in .copyFromXR)
     setMethod("asServerObject", c(Class, "JuliaObject"),
               selectMethod("asServerObject", Class))
-
-#' Function Versions of Methods for Julia Interface evaluators.
-#'
-#' @name functions
-#' @param object an R object, to be sent to Julia (\code{juliaSend()}) or a proxy object for
-#' the Julia object to be converted (\code{juliaGet()}).
-#' @param evaluator The evaluator object to use.  By default, and usually, the current evaluator
-#' is used, and one is started if none has been.
-NULL
 
 #' @describeIn functions
 #' sends the \code{object} to Julia, converting it via methods for
@@ -409,6 +425,7 @@ juliaPrint <- function(object, ..., evaluator = XRJulia::RJulia()) {
 #' @describeIn functions
 #' evaluates the \code{expr} string subsituting the arguments.  See the corresponding evaluator
 #' method for details.
+#' @param expr A string that should be legal when parsed and evaluated in Julia.
 juliaEval <- function(expr, ..., evaluator = XR::getInterface(.JuliaInterfaceClass))
     evaluator$Eval(expr, ...)
 
@@ -423,13 +440,11 @@ juliaCommand <- function(expr, ..., evaluator = XR::getInterface(.JuliaInterface
 juliaCall <- function(expr, ..., evaluator = XR::getInterface(.JuliaInterfaceClass))
     evaluator$Call(expr, ...)
 
-
-#' converts the proxy object that is its argument to an \R{} object.
-juliaGet <- function(object, evaluator = XR::getInterface(.JuliaInterfaceClass))
-    evaluator$Get(object)
-
 #' @describeIn functions
 #' serialize the \code{object} in Julia
+#' @param file,append,all Arguments to the evalutor's serialize and unserialize methods. See the reference,
+#' Chapter 10.
+#' @param object A proxy in R for a Julia object.
 juliaSerialize <- function(object,  file, append = FALSE, evaluator = XR::getInterface(.JuliaInterfaceClass))
     evaluator$Serialize(object, file, append)
 
@@ -443,15 +458,12 @@ juliaUnserialize <- function(file, all = FALSE, evaluator = XR::getInterface(.Ju
 juliaName <- function(object)
     XR::proxyName(object)
 
+#' @describeIn functions
 #' Import a Julia module or add a directory to the Julia Search Path
-#'
-#' adds the module information specified to the modules imported for Julia evaluators.
-#'
 #' If called from the source directory of a package during installation, both \code{juliaImport}
 #' and \code{juliaAddToPath()} also set up
 #' a load action for that package.  The functional versions, not the methods themselves, should
 #' be called from package source files to ensure that the load actions are created.
-#' @param ...  arguments for the \code{$Import()} method. See the method documentation for details.
 juliaImport <- function( ...,  evaluator) {
     if(missing(evaluator))
         XR::serverImport("JuliaInterface", ...)
@@ -461,22 +473,9 @@ juliaImport <- function( ...,  evaluator) {
 
 
 ## proxy Julia functions
-#' Proxy Objects in R for Julia Functions
-#'
-#' A class and generator function for proxies in R for Julia functions.
-#'
-#' An object from this class is an R function that is a proxy for a function in Julia. Calls to the R function evaluate
-#' a call to the Julia function.  The arguments in the call are converted to equivalent Julia objects;
-#' these typically include proxy objects for results previously computed through the XRJulia interface.
-#'
-#' @slot name the name of the server language function
-#' @slot module the name of the module, if that needs to be imported
-#' @slot evaluatorClass the class for the evaluator, by default and usually, \code{\link{JuliaInteface}}
 JuliaFunction <- setClass("JuliaFunction",
                           contains = "ProxyFunction")
-#' @describeIn JuliaFunction
-#' creates a function object that calls the named Julia function, optionally imported from
-#' the specified module.
+
 setMethod("initialize", "JuliaFunction",
      function (.Object, name, module = "", evaluator = RJulia(), ...)
     {
@@ -497,8 +496,12 @@ setMethod("initialize", "JuliaFunction",
     }
 )
 
-#' @describeIn functions
-#' Returns the Julia definition of the specified class, optionally from the module.
+#' Information about a Julia Class
+#'
+#' The Julia class definition information is computed, and converted to R.
+#' @return the Julia definition of the specified class, optionally from the module.
+#' @param Class,module Strings identifying the Julia composite type and optionally, the module containing it.
+#' @param ...,.ev Don't supply these, \code{.ev} defaults to the current Julia interface evaluator.
 juliaClassDef <- function(Class, module = "", ..., .ev = RJulia()) {
     if(nzchar(module))
         .ev$Import(module, Class)
@@ -511,6 +514,9 @@ juliaClassDef <- function(Class, module = "", ..., .ev = RJulia()) {
 #' class with the same fields as the Julia type.  By default, uses metadata from Julia to
 #' find the fields.  If the call supplies the desired field names explicitly, metadata is
 #' not used.
+#' @param juliaType,module Strings identifying the composite type and optionally the module containing it. In normal use,
+#' metadata from Julia is used to find the definition of the type.
+#' @param fields,where,proxyObjectClass,... Overriding arguments that should not be used by direct calls from package source code.
 setJuliaClass <- function (juliaType, module = "", fields = character(),
     where = topenv(parent.frame()),
     proxyObjectClass = "JuliaObject", ...)
