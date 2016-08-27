@@ -284,9 +284,10 @@ findJulia <- function(test = FALSE) {
                     envvar <- trybin
             }
         }
-    } # if none of these succeeds, `which julia` needs to return something
+    } # if none of these succeeds, `which julia` used to find an executable version
     if(!nzchar(envvar)) {
-        envvar <- if (.Platform$OS.type == "windows") system("where julia", intern = TRUE) else system("which julia", intern = TRUE)
+        command <-if (.Platform$OS.type == "windows") "where" else "which"
+        envvar <- tryCatch(system2(command, "julia", stdout = TRUE), warning = function(e) "")
         if(test)
             Sys.setenv(JULIA_BIN = envvar) # so next call finds this immediately
         else if(!nzchar(envvar))
