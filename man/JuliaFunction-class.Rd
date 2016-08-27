@@ -39,3 +39,13 @@ is used, and one is started if none has been.}
 \item{\code{evaluatorClass}}{the class for the evaluator, by default and usually, \code{\link{JuliaInterface}}}
 }}
 
+\examples{
+if(findJulia(test = TRUE)) {
+  set.seed(228)
+  x <- matrix(rnorm(1000),20,5)
+  xm <- juliaSend(x)
+  svdJ <- JuliaFunction("svdfact")
+  sxm <- svdJ(xm)
+  sxm
+}
+}

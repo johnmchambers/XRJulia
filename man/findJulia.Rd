@@ -18,7 +18,7 @@ If \code{test} is \code{FALSE}, failure to find a Julia
 in the current system is an error.
 }
 \description{
-This function looks for an executable Julia application in the local operating system.  The location can be prespecied by
+This function looks for an executable Julia application in the local operating system.  The location can be prespecified by
 setting environment variable \code{JULIA_BIN}; otherwise, the function looks in various conventional locations
 and if that doesn't work, runs a shell command to look for \code{julia}.
 }
