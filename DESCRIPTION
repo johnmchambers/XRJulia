@@ -1,8 +1,8 @@
 Package: XRJulia
 Type: Package
 Title: Structured Interface to Julia
-Version: 0.5
-Date: 2015-03-17
+Version: 0.7
+Date: 2016-08-27
 Author: John M. Chambers
 Maintainer: John Chambers <jmc@stat.stanford.edu>
 Description: A Julia interface structured according to the general
@@ -10,4 +10,4 @@ Description: A Julia interface structured according to the general
 License: GPL (>= 2)
 Imports: methods, XR
 NeedsCompilation: no
-Packaged: 2015-09-10 13:25:41 UTC; jmc
+
