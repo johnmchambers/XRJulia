@@ -16,5 +16,5 @@ The interface structure is described in the book
 A pdf version of the XRJulia chapter from the book is included with the
 documentation of this package.
 
-*CRAN Version*: A version of this package (currently version 0.7.0) is
+*CRAN Version*: A version of this package (currently version 0.7) is
  available from the CRAN repository.
