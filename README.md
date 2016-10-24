@@ -14,7 +14,10 @@ would in R, without special programming imposed by the interface.
 The interface structure is described in the book
 *Extending R* (John M. Chambers, 2016, Chapman & Hall).
 A pdf version of the XRJulia chapter from the book is included with the
-documentation of this package.
+documentation of this package.  To open the pdf file from R:
+
+  `RShowDoc("Chapter_XRJulia", package = "XRJulia")`
+
 
 *CRAN Version*: A version of this package (currently version 0.7) is
  available from the CRAN repository.
