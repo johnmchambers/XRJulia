@@ -23,7 +23,7 @@ end
 ### Revised, starting 2015-02-07 to use general R object encoding.
 
 ## special processing for array objects via JSON
-function objectFromJSON(str::ASCIIString)
+function objectFromJSON(str::String)
     fromJSONObject(JSON.parse(str))
 end
 
@@ -70,15 +70,15 @@ function makeRObject(object::Dict{AbstractString,Any})
 end
 
 ## tables for converting R type/class to Julia:  NOT CURRENTLY USED
-juliaTypes = Dict{ASCIIString,DataType}( "integer" => Int64, "numeric" => Float64, "character" => ASCIIString,
+juliaTypes = Dict{String,DataType}( "integer" => Int64, "numeric" => Float64, "character" => String,
                 "logical" => Bool,  "double" => Float64)
 
-juliaArrayTypes = Dict{ASCIIString,DataType}( "integer" => Array{Int64,1}, "numeric" => Array{Float64,1},
-                     "character" => Array{ASCIIString,1},
+juliaArrayTypes = Dict{String,DataType}( "integer" => Array{Int64,1}, "numeric" => Array{Float64,1},
+                     "character" => Array{String,1},
                      "logical" => Array{Bool,1}, "double" => Array{Float64,1} )
 
 ### Converting Array{} types in Julia to basic R vector classes (Not actual typeof())
-RTypes = Dict{ASCIIString, ASCIIString}("Array{Int64,1}" => "integer", "Array{Float64,1}" => "numeric", "Array{ASCIIString,1}" => "character",
+RTypes = Dict{String, String}("Array{Int64,1}" => "integer", "Array{Float64,1}" => "numeric", "Array{String,1}" => "character",
           "Array{Complex{Float64},1}" => "complex",
           "Array{Bool,1}" => "logical", "Array{Any,1}" => "list" )
 
@@ -106,7 +106,7 @@ function RJuliaCommand(args::Array{Any,1})
         end
         ee.args = aa
         eval(ee)
-    elseif isa(task, ASCIIString)
+    elseif isa(task, String)
         conditionToR("Not a defined task type: \"$task\"")
     else
         conditionToR(string("Badly formed command:  the 1st element should be a task string, got object of type ", typeof(task)))
@@ -164,7 +164,7 @@ function RJuliaQuit()
 end
 
 ## the names in this table need to match the jlSendTask calls in  RJuliaConnect.R
-TaskFunctions = Dict{ASCIIString, Function}( "get" => RJuliaGet,
+TaskFunctions = Dict{String, Function}( "get" => RJuliaGet,
                   "eval" => RJuliaEval,
                  "remove" => RJuliaRemove, "quit" => RJuliaQuit)
 
@@ -216,7 +216,7 @@ function proxyForR(key, value)
     proxyForR(key, string(typeof(value)), len)
 end
 
-RName = Union{ASCIIString} # placeholder for future change to AbstractString,or ....
+RName = Union{String} # placeholder for future change to AbstractString,or ....
 type RObject
     class::RName
     package::RName
@@ -358,7 +358,7 @@ end
 function fieldNames(what::DataType)
     syms = fieldnames(what)
     n = length(syms)
-    fields = Array(ASCIIString, n)
+    fields = Array(String, n)
     for i in 1:n
         fields[i] = string(syms[i])
     end
