@@ -1,6 +1,8 @@
 import(XR)
+importFrom("methods", "callNextMethod", "new")
 
 export(RJulia)
+export(findJulia)
 export(juliaClassDef) #? or make into class like PythonClassDef?
 export(JuliaFunction,JuliaInterface,JuliaObject)
 exportClass(JuliaFunction,JuliaInterface,JuliaObject)
