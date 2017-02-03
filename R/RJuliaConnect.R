@@ -321,11 +321,11 @@ setMethod("asServerObject", c("array", "JuliaObject"),
     onames <- names(object)
     vals <- sapply(object, function(x) asServerObject(x, prototype))
     if(is.null(onames))
-        paste("{", paste(vals, collapse = ", "), "}")
+        paste("[", paste(vals, collapse = ", "), "]")
     else {
         onames <- XR::nameQuote(XR::fillNames(onames))
-        paste("{", paste(onames, vals, sep = " => ", collapse = ", "),
-              "}")
+        paste("Dict(", paste(onames, vals, sep = " => ", collapse = ", "),
+              ")")
     }
 }
 
