@@ -38,13 +38,13 @@ function fromJSONObject(object::Array{Any, 1})
     ## check for a single type of object
     ## TODO:  should also handle the case that all elements can be converted
     ## to one type; e.g., integer & float; numeric & string
-    types = Array(Any, size(object))
+    types = Array{Any}(size(object))
     for i in 1:length(object)
         types[i] = typeof(object[i])
     end
     types = unique(types)
     if length(types) == 1
-        convert(typeof(Array(types[1], 1)), object)
+        convert(typeof(Array{types[1]}(1)), object)
     else
         object
     end
@@ -99,7 +99,7 @@ function RJuliaCommand(args::Array{Any,1})
         ## push the args.  Each task is actually called with a known number
         ## of arguments, but the definitions allow for defaults if those make sense
         ee = Expr(:call)
-        aa = Array(Any, 0)
+        aa = Array{Any}(0)
         push!(aa, f)
         for i in 2:length(args)
             push!(aa, args[i])
@@ -304,7 +304,7 @@ function toR{T,N}(x::Array{T,N})
     else
         Class = "array"
     end
-    dim = Array(Int64, ndim)
+    dim = Array{Int64}(ndim)
     for i in 1:ndim
         dim[i] = dims[i]
     end
@@ -329,9 +329,9 @@ function vectorR(x)
     ## <TODO>  In order to handle Julia's scalar types with no R equivalent, there should be
     ## a mechanism here to set the "type" slot to the actual Julia typeStr, with
     ## a corresponding mechanism in the method for asROject(), ("vector_R", "JuliaInterface")
-    mm = Array(Bool,0) # missing values
+    mm = Array{Bool}(0) # missing values
     if rtype == "list"
-        value = Array(Any, size(x))
+        value = Array{Any}(size(x))
         for i in 1:length(x)
             value[i] = toR(x[i])
         end
@@ -358,7 +358,7 @@ end
 function fieldNames(what::DataType)
     syms = fieldnames(what)
     n = length(syms)
-    fields = Array(String, n)
+    fields = Array{String}(n)
     for i in 1:n
         fields[i] = string(syms[i])
     end

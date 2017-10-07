@@ -5,7 +5,7 @@ xx = ev$Eval("%s",1:3)
 xx
 ev$Get(xx)
 ev$Call("length",xx)
-xx = ev$Convert(matrix(1:12,3,4))
+xx = ev$Send(matrix(1:12,3,4))
 yy = ev$Get(xx)
 str(yy)
 ev$Command('Pkg.add("Calculus")')
@@ -22,5 +22,5 @@ yy <- cosJ(xx)
 yy
 ev$Get(yy)
 yy <- cosJ(pi * seq(.25,1.,.25))
-pp <- ev$Convert(pi * seq(.25,1.,.25))
+pp <- ev$Send(pi * seq(.25,1.,.25))
 dy <- dJ(cosJ, pp) # gets a Julia error; derivative only works on scalars
