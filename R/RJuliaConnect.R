@@ -267,6 +267,17 @@ RJulia <- function(...)
 #' @param test Should the function test for the existence of the application.  Default \code{FALSE}. Calling with
 #' \code{TRUE} is useful to bullet-proof examples or tests for the absence of Julia. If the test search succeeds,
 #' the location is saved in environment variable \code{JULIA_BIN}.
+#' @section On Mac OS X:
+#' Installing Julia in the usual way does not put the command line version in a
+#' standard location, but instead in a folder under \code{/Applications}.
+#' Assuming one wants to have Julia available from the command line,
+#' creating a symbolic link to it in \code{/usr/local/bin} is a standard approach.
+#' If the current version of Julia is \code{0.6}:
+#'
+#' \code{sudo ln -s /Applications/Julia-0.6.app/Contents/Resources/julia/bin/julia /usr/local/bin/julia}
+#'
+#' If for some reason you did not want this to be available,  set the shell variable
+#' \code{JULIA_BIN} to the first file in the command, the one in \code{/Applications}.
 findJulia <- function(test = FALSE) {
     ## See if a location for the Julia executable has been specified
     ## environment variables JULIA_BIN or JULIA_SRC

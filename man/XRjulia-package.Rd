@@ -17,8 +17,8 @@ Maintainer: John Chambers <jmc@stat.stanford.edu>
 
 }
 \references{
- Chambers, John M. (book in progress)
-\emph{Extending R}
+ Chambers, John M.
+\emph{Extending R} Chapman & Hall/CRC 2016.
 }
 
 \keyword{ package }
