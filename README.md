@@ -18,6 +18,5 @@ documentation of this package.  To open the pdf file from R:
 
   `RShowDoc("Chapter_XRJulia", package = "XRJulia")`
 
-
-*CRAN Version*: A version of this package (currently version 0.7) is
- available from the CRAN repository.
+Version 0.76 of the package has been updated to deal with back-incompatible
+changes in Julia (up to version 0.6).
