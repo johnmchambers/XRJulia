@@ -122,7 +122,7 @@ be the simple strings or logical value expected.'
         value
     },
     ServerQuit = function(...) {
-        cmd <- jsonlite::toJSON("quit")
+        cmd <- jsonlite::toJSON("quit") # NB: this is the *task* quit in XRJulia, not the Julia quit() function
         writeLines(cmd, connection) # don't expect an answer; the process will exit
         close(connection)
     },
