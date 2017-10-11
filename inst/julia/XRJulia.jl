@@ -6,24 +6,39 @@ export RJuliaCommand, toR, RObject, vectorR, conditionToR
 ## Julia's try statement only works on function calls, so a kludge is needed
 ## to put the import statement into a try
 importExpr = parse("import JSON")
+## Because adding a package during initialization can delay startup and cause the waiting process to
+## think the connection is blocked, we delay the package add until JSON is first required.
+hasJSON = true
 try
     eval(importExpr)
 catch err
+    hasJSON = false
+end
+
+function testJSON()
+    hasJSON
+end
+
+function getJSON()
+    if(hasJSON)
+        return true
+    end
     try
         write(STDERR, "Trying to add Julia package JSON; expect some messages\n")
         Pkg.add("JSON")
         eval(importExpr)
+	hasJSON = true
     catch err
         write(STDERR, "Unable to add and import JSON: ")
         showerror(STDERR, err)
         error()
     end
+    hasJSON
 end
-
-### Revised, starting 2015-02-07 to use general R object encoding.
 
 ## special processing for array objects via JSON
 function objectFromJSON(str::String)
+    getJSON()
     fromJSONObject(JSON.parse(str))
 end
 
@@ -142,6 +157,7 @@ function RJuliaEval(expr::AbstractString, key::AbstractString = "", send = nothi
             value = eval(parse(key))
         end
     catch err
+        getJSON()
         msg = string("Evaluating Julia ", what, ": ", JSON.string(expr))
         return conditionToR(msg, err)
     end
