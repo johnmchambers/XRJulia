@@ -4,12 +4,23 @@ push!(LOAD_PATH, rjulia_lib)
 
 using XRJulia
 
+verbose = haskey(ENV, "JuliaVerbose")
+
+## ? this causes a hang?
+## if(!XRJulia.hasJSON)
+##     if(verbose)
+##         show("adding package JSON to julia")
+##     end
+##     XRJulia.getJSON()
+##     if(verbose)
+##         show("JSON added")
+##     end
+## end
+
 import JSON
 
 ## start evaluator
 
-
-verbose = haskey(ENV, "JuliaVerbose")
 
 
 ## all the ENV's should be in a try
@@ -21,6 +32,9 @@ if(verbose)
 end
 
 RJuliaServer = listen(RJuliaPort)
+if(verbose)
+  show("Server obtained\n")
+end
 RJuliaSocket = accept(RJuliaServer)
 
 ## the server loop:  reads a JSON object which needs to be an RJulia command

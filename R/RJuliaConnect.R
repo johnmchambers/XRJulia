@@ -58,6 +58,8 @@ JuliaInterface$methods(
                            else
                                Sys.unsetenv("JuliaVerbose")
                            if(startJulia) {
+                               ## if(!testJSON(julia_bin))
+                               ##     stop("No JSON module in Julia:  Run `Pkg.add(\"JSON\")` in Julia")
                                juliaFolder <- system.file("julia", package = .packageName)
                                juliaStart <-  system.file("julia","RJuliaJSON.jl", package = .packageName)
                                Sys.setenv(RJuliaPort=port, RJuliaHost = host, RJuliaSource=juliaFolder)
@@ -66,7 +68,7 @@ JuliaInterface$methods(
                                    base::system(paste0(julia_bin, " ", juliaStart), wait = FALSE)
                                  } else {
                                    base::system(paste0(julia_bin, " < ", juliaStart), wait = FALSE)
-                                 }
+                               }
                            }
                            ## else, the Julia process should have been started and have called accept()
                            ## for the chosen port
@@ -261,7 +263,9 @@ RJulia <- function(...)
 #' setting environment variable \code{JULIA_BIN}; otherwise, the function looks in various conventional locations
 #' and if that doesn't work, runs a shell command to look for \code{julia}.
 #' @return The location as a character string, unless \code{test} is \code{TRUE}, in which case success or failure
-#' is returned, and the location found (or the empty string) is saved as the environment varialbe.
+#' is returned, and the location found (or the empty string) is saved as the environment variable.
+#' Note that in this case, \code{FALSE} is returned if the Julia package \code{JSON} has not been added.
+#' 
 #' If \code{test} is \code{FALSE}, failure to find a Julia
 #' in the current system is an error.
 #' @param test Should the function test for the existence of the application.  Default \code{FALSE}. Calling with
@@ -305,10 +309,16 @@ findJulia <- function(test = FALSE) {
             stop("No julia executable in search path and JULIA_BIN environment variable not set")
     }
     if(test)
-        nzchar(envvar)
+        nzchar(envvar)  && testJSON(envvar) # to protect against hanging in a package add (see XRJulia.jl)
     else
         envvar
 }
+
+testJSON <- function(julia_bin) {
+    testFile <- system.file("julia", "testJSON.jl", package = "XRJulia")
+    identical("YES", system(paste(julia_bin, "<", testFile), intern = TRUE))
+}
+    
 
 ## the base for the port used by JuliaInterface objects
 ## This value should be overwritten by a random choice in the load action
