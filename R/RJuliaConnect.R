@@ -64,11 +64,7 @@ JuliaInterface$methods(
                                juliaStart <-  system.file("julia","RJuliaJSON.jl", package = .packageName)
                                Sys.setenv(RJuliaPort=port, RJuliaHost = host, RJuliaSource=juliaFolder)
                                if(host == "localhost")
-                                 if (.Platform$OS.type == "windows") {
-                                   base::system(paste0(julia_bin, " ", juliaStart), wait = FALSE)
-                                 } else {
-                                   base::system(paste0(julia_bin, " < ", juliaStart), wait = FALSE)
-                               }
+                                   base::system(juliaCMD(julia_bin, juliaStart), wait = FALSE)
                            }
                            ## else, the Julia process should have been started and have called accept()
                            ## for the chosen port
@@ -314,9 +310,16 @@ findJulia <- function(test = FALSE) {
         envvar
 }
 
+## command to run a julia file.
+## Needs to allow for a blank in the Windows location ("Program Files")
+juliaCMD <- function(julia_bin, testFile)
+    if (.Platform$OS.type == "windows") paste0('"',julia_bin,'" ', testFile) else paste(julia_bin, "<", testFile)
+
 testJSON <- function(julia_bin) {
     testFile <- system.file("julia", "testJSON.jl", package = "XRJulia")
-    identical("YES", system(paste(julia_bin, "<", testFile), intern = TRUE))
+    cmd <-  juliaCMD(julia_bin, testFile)
+    hasJSON <- base::system(cmd, intern = TRUE)
+    identical("YES", hasJSON)
 }
     
 
