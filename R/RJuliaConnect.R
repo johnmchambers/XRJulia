@@ -58,13 +58,18 @@ JuliaInterface$methods(
                            else
                                Sys.unsetenv("JuliaVerbose")
                            if(startJulia) {
-                               ## if(!testJSON(julia_bin))
-                               ##     stop("No JSON module in Julia:  Run `Pkg.add(\"JSON\")` in Julia")
                                juliaFolder <- system.file("julia", package = .packageName)
                                juliaStart <-  system.file("julia","RJuliaJSON.jl", package = .packageName)
                                Sys.setenv(RJuliaPort=port, RJuliaHost = host, RJuliaSource=juliaFolder)
-                               if(host == "localhost")
+                               if(host == "localhost") {
+                                   if(!testJSON(julia_bin)) { # try to add the package
+                                       jsonAdd <- system.file("julia","addJSON.jl", package = .packageName)
+                                       base::system(juliaCMD(julia_bin, jsonAdd))
+                                       if(!testJSON(julia_bin))
+                                           stop("No JSON module in Julia and unable to add:  try in julia")
+                                   }
                                    base::system(juliaCMD(julia_bin, juliaStart), wait = FALSE)
+                               }
                            }
                            ## else, the Julia process should have been started and have called accept()
                            ## for the chosen port
@@ -305,7 +310,7 @@ findJulia <- function(test = FALSE) {
             stop("No julia executable in search path and JULIA_BIN environment variable not set")
     }
     if(test)
-        nzchar(envvar)  && testJSON(envvar) # to protect against hanging in a package add (see XRJulia.jl)
+        nzchar(envvar)  && testJSON(envvar) # to protect examples from long delay
     else
         envvar
 }

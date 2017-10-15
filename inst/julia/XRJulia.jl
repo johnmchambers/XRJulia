@@ -2,37 +2,7 @@ module XRJulia
 
 export RJuliaCommand, toR, RObject, vectorR, conditionToR
 
-## import JSON, adding package the first time if not available.
-## Julia's try statement only works on function calls, so a kludge is needed
-## to put the import statement into a try
-importExpr = parse("import JSON")
-## Because adding a package during initialization can delay startup and cause the waiting process to
-## think the connection is blocked, we delay the package add until JSON is first required.
-hasJSON = true
-try
-    eval(importExpr)
-catch err
-    hasJSON = false
-end
-
 function testJSON()
-    hasJSON
-end
-
-function getJSON()
-    if(hasJSON)
-        return true
-    end
-    try
-        write(STDERR, "Trying to add Julia package JSON; expect some messages\n")
-        Pkg.add("JSON")
-        eval(importExpr)
-	hasJSON = true
-    catch err
-        write(STDERR, "Unable to add and import JSON: ")
-        showerror(STDERR, err)
-        error()
-    end
     hasJSON
 end
 
