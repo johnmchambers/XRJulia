@@ -2,13 +2,10 @@ module XRJulia
 
 export RJuliaCommand, toR, RObject, vectorR, conditionToR
 
-function testJSON()
-    hasJSON
-end
+import JSON
 
 ## special processing for array objects via JSON
 function objectFromJSON(str::String)
-    getJSON()
     fromJSONObject(JSON.parse(str))
 end
 
@@ -127,7 +124,6 @@ function RJuliaEval(expr::AbstractString, key::AbstractString = "", send = nothi
             value = eval(parse(key))
         end
     catch err
-        getJSON()
         msg = string("Evaluating Julia ", what, ": ", JSON.string(expr))
         return conditionToR(msg, err)
     end
