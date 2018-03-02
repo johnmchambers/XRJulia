@@ -13,7 +13,9 @@ the location is saved in environment variable \code{JULIA_BIN}.}
 }
 \value{
 The location as a character string, unless \code{test} is \code{TRUE}, in which case success or failure
-is returned, and the location found (or the empty string) is saved as the environment varialbe.
+is returned, and the location found (or the empty string) is saved as the environment variable.
+Note that in this case, \code{FALSE} is returned if the Julia package \code{JSON} has not been added.
+
 If \code{test} is \code{FALSE}, failure to find a Julia
 in the current system is an error.
 }

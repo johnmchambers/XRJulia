@@ -146,6 +146,8 @@ the unparamaterized version will be a secondary match.'
 JuliaInterface$methods(
     ServerAddToPath = function(serverDirectory, serverPos = NA) {
         'Julia version of the AddToPath method.'
+        ## Julia may try to interpret anything with attributes, so strip
+        serverDirectory <- as(serverDirectory, "character")
         if(is.na(serverPos))
             Call("push!", as.name("LOAD_PATH"), serverDirectory)
         else
@@ -201,17 +203,19 @@ juliaSource <- function(..., evaluator = RJulia())
     evaluator$Source(...)
 
 #' @describeIn functions
-#' adds the directory specified to the search path for all future Julia evaluator objects.
-#' If called from the source directory of a package during installation, also sets up
-#' a load action for that package.  If you want to add the path ONLY to one
-#' evaluator, you must supply that as the \code{evaluator} argument.
+#' adds the directory specified to the search path for Julia modules.
+#' If called from the source directory of a package during installation, sets up
+#' a load action for that package.  If you want to add the path to all
+#' evaluators in \emph{this} session, call the function before creating an evaluator.
+#' Otherwise, the action applies only to the specified evaluator or,
+#' by default, to the current evaluator.
 #' @param directory the directory to add, defaults to "julia"
 #' @param package,pos arguments to the method, usually omitted.
 #' @param where for the load action, omitted if called from a package source file.
 #' Otherwise, must be the environment in which a load action can take place.
-juliaAddToPath <- function(directory = "julia", package = utils::packageName(topenv(parent.frame())), pos = NA,  evaluator,
+juliaAddToPath <- function(directory = "julia", package = utils::packageName(topenv(parent.frame())), pos = NA,  evaluator = RJulia(.makeNew = FALSE),
                            where = topenv(parent.frame())) {
-    if(missing(evaluator))
+    if(is.null(evaluator))
         XR::serverAddToPath("JuliaInterface", directory, package, pos, where = where)
     else
         evaluator$AddToPath(directory, package, pos)
@@ -233,11 +237,13 @@ juliaUsing <- function(module, evaluator) {
 #' Add the module to the table of imports for Julia evaluators, and import it to the current evaluator
 #' if there is one.
 #' If called from the source directory of a package during installation, both \code{juliaImport}
-#' and \code{juliaAddToPath()} also set up
+#' and \code{juliaAddToPath()} set up
 #' a load action for that package.  The functional versions, not the methods themselves, should
 #' be called from package source files to ensure that the load actions are created.
-juliaImport <- function(...,  evaluator) {
-    if(missing(evaluator))
+#' Note that calling either function before any evaluator has been generated
+#' will install that call as a setup action for all XRJulia evaluators.
+juliaImport <- function(...,  evaluator = RJulia(.makeNew = FALSE)) {
+    if(is.null(evaluator))
         XR::serverImport("JuliaInterface", ...)
     else
         evaluator$Import(...)
