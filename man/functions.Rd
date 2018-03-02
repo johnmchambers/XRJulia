@@ -21,8 +21,8 @@
 juliaSource(..., evaluator = RJulia())
 
 juliaAddToPath(directory = "julia",
-  package = utils::packageName(topenv(parent.frame())), pos = NA, evaluator,
-  where = topenv(parent.frame()))
+  package = utils::packageName(topenv(parent.frame())), pos = NA,
+  evaluator = RJulia(.makeNew = FALSE), where = topenv(parent.frame()))
 
 juliaUsing(module, evaluator)
 
@@ -79,10 +79,12 @@ Function Versions of Methods for Julia Interface evaluators.
 \itemize{
 \item \code{juliaSource}: evaluate the file of Julia source.
 
-\item \code{juliaAddToPath}: adds the directory specified to the search path for all future Julia evaluator objects.
-If called from the source directory of a package during installation, also sets up
-a load action for that package.  If you want to add the path ONLY to one
-evaluator, you must supply that as the \code{evaluator} argument.
+\item \code{juliaAddToPath}: adds the directory specified to the search path for Julia modules.
+If called from the source directory of a package during installation, sets up
+a load action for that package.  If you want to add the path to all
+evaluators in \emph{this} session, call the function before creating an evaluator.
+Otherwise, the action applies only to the specified evaluator or,
+by default, to the current evaluator.
 
 \item \code{juliaUsing}: the "using" form of Julia imports:  the module is imported with all exports exposed.
 
@@ -91,9 +93,11 @@ evaluator, you must supply that as the \code{evaluator} argument.
 Add the module to the table of imports for Julia evaluators, and import it to the current evaluator
 if there is one.
 If called from the source directory of a package during installation, both \code{juliaImport}
-and \code{juliaAddToPath()} also set up
+and \code{juliaAddToPath()} set up
 a load action for that package.  The functional versions, not the methods themselves, should
 be called from package source files to ensure that the load actions are created.
+Note that calling either function before any evaluator has been generated
+will install that call as a setup action for all XRJulia evaluators.
 
 \item \code{juliaSend}: sends the \code{object} to Julia, converting it via methods for
 \code{\link[XR]{asServerObject}} and returns a proxy for the converted object.
