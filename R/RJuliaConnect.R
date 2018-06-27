@@ -4,9 +4,24 @@
 #' in the XR  package.  Proxy functions and classes allow use of the interface with no explicit
 #' reference to the evaluator.  The function \code{RJulia()} returns an evaluator object.
 #'
-#' @field port,host The parameters for communicating with the Julia evaluator.
-#' @field julia\_bin The command for starting a Julia process.
-#' @field connection The connection object through which commands are sent to Julia
+#' @field host The remote host, as a character string.  By default this will be the local host, and initializing the evalutor
+#' will set the field to "localhost".
+#' @field port The port number for commuicating to Julia from this evalutor.
+#' By default, the port is set by adding the evaluator number-1 to a base port number.
+#' By default the base port is randomly chosen at package load time (this strategy may change).
+#'
+#' The port may be controlled in two ways.  If you know a good range or set of ports, it will
+#' be preferrable to supply unique port values (integer) in the initialization call.
+#' A less direct way is set the R option "JuliaBasePort", which will then be used as the base port.
+#' Since evaluator numbers are used to increment the port, the call to \code{\link{options}} should normally come before 
+#' initializing the first Julia evaluator.
+#' @field julia_bin The location for an executable version of the Julia interpreter.  By default, this assumes there is a file named \code{"julia"}
+#' on the command-line  search path.  If Julia is not usable from the command line or if you want to run with a different version, supply
+#' the executable file name as this argument.  It is also possible to set the location for all evaluators by setting the shell variable
+#' \code{JULIA_BIN} to this location \emph{before} starting R.
+#' @field connection The connection object through which commands are sent to Julia.  Normally will be created by the initialization
+#' of the evaluator.  Should only be supplied as a currently
+#' open socket on which to communicate with the Julia interpreter.
 JuliaInterface <- setRefClass("JuliaInterface",
                       fields = c( port = "integer", host = "character",
                           julia_bin = "character",
@@ -14,86 +29,88 @@ JuliaInterface <- setRefClass("JuliaInterface",
                       contains = "Interface")
 
 JuliaInterface$methods(
-    initialize = function(..., startJulia = identical(host, "localhost"), verbose = FALSE){
-        'The initialize method attempts to open a socket unless the "connection" field in the call is an open socket.  Else, if the host is the local host an attempt is made to start a Julia process.  See the documentation of the interface class for details.'
-                           languageName <<- "Julia"
-                           prototypeObject <<- JuliaObject()
-                           callSuper(...) # initialize object & register it
-                           if(is(connection, "connection")) {
-                               if(is(connection, "sockconn") && isOpen(connection))
-                                   return()
-                               else {
-                                   if(!is(connection, "sockconn"))
-                                       msg <- gettextf("got class %s",dQuote(class(connection)))
-                                   else
-                                       msg <- "Socket not open"
-                                   stop(gettextf(
-                                       "Argument connection= should be an open socket connection: %s",
-                                       msg))
-                               }
+                   initialize = function(..., startJulia, verbose = FALSE)
+                   {
+                       'The initialize method attempts to open a socket unless the "connection" field in the evaluator is an open socket.  Else, if the host is the local host an attempt is made to start a Julia process.  See the documentation of the interface class for details.'
+                       languageName <<- "Julia"
+                       prototypeObject <<- JuliaObject()
+                       callSuper(...) # initialize object & register it
+                       if(is(connection, "connection")) {
+                           if(is(connection, "sockconn") && isOpen(connection))
+                               return()
+                           else {
+                               if(!is(connection, "sockconn"))
+                                   msg <- gettextf("got class %s",dQuote(class(connection)))
+                               else
+                                   msg <- "Socket not open"
+                               stop(gettextf(
+                                   "Argument connection= should be an open socket connection: %s",
+                                   msg))
                            }
-                           ## start a julia proc.
-                           if(length(port) == 0 || is.na(port)) { # uninitialized
-                               xport <- getOption("JuliaPort")
-                               if(length(xport) == 0 ||is.na(xport))
-                                   xport <- basePort + XR::evaluatorNumber(.self)
-                               port <<- as.integer(xport)
-                               startJulia <- TRUE
-                           }
-                           if(startJulia) {
-                               ## the equivalent of AddToPath(), done in Julia
-                               julia_lib <- system.file("julia",package = "XRJulia")
-                               Sys.setenv(RJULIA_LIB = julia_lib)
-                               if(!(julia_lib %in% serverPath))
-                                   serverPath <<- c(serverPath, julia_lib)
-                           }
-                           if(length(host) == 0)  ## never set
-                               host <<- "localhost"
+                       }
+                       if(missing(startJulia))
+                           startJulia <- length(host) == 0L || identical(host, "localhost")
+                       ## start a julia proc.
+                       if(startJulia && (length(port) == 0L || is.na(port))) {# uninitialized
+                           base <- getOption("JuliaBasePort")
+                           if(is.null(base) || is.na(base))
+                               base <- basePort # value set at package load time
+                           port <<- as.integer(base + XR::evaluatorNumber(.self)) - 1L
+                       }
+                       if(startJulia) {
+                           ## the equivalent of AddToPath(), done in Julia
+                           julia_lib <- system.file("julia",package = "XRJulia")
+                           Sys.setenv(RJULIA_LIB = julia_lib)
+                           if(!(julia_lib %in% serverPath))
+                               serverPath <<- c(serverPath, julia_lib)
+                       }
+                       if(length(host) == 0)  ## never set
+                           host <<- "localhost"
+                       if(identical(host, "localhost") && length(julia_bin) == 0L)
+                               julia_bin <<- findJulia()
+                       if(verbose)
+                           Sys.setenv(JuliaVerbose = 1)
+                       else
+                           Sys.unsetenv("JuliaVerbose")
+                       if(startJulia) {
+                           juliaFolder <- system.file("julia", package = .packageName)
+                           juliaStart <-  system.file("julia","RJuliaJSON.jl", package = .packageName)
+                           Sys.setenv(RJuliaPort=port, RJuliaHost = host, RJuliaSource=juliaFolder)
                            if(identical(host, "localhost")) {
-                               if(length(julia_bin) == 0)
-                                   julia_bin <<- findJulia()
-                           }
-                           if(verbose)
-                               Sys.setenv(JuliaVerbose = 1)
-                           else
-                               Sys.unsetenv("JuliaVerbose")
-                           if(startJulia) {
-                               juliaFolder <- system.file("julia", package = .packageName)
-                               juliaStart <-  system.file("julia","RJuliaJSON.jl", package = .packageName)
-                               Sys.setenv(RJuliaPort=port, RJuliaHost = host, RJuliaSource=juliaFolder)
-                               if(host == "localhost") {
-                                   if(!testJSON(julia_bin)) { # try to add the package
-                                       jsonAdd <- system.file("julia","addJSON.jl", package = .packageName)
-                                       base::system(juliaCMD(julia_bin, jsonAdd))
-                                       if(!testJSON(julia_bin))
-                                           stop("No JSON module in Julia and unable to add:  try in julia")
-                                   }
-                                   base::system(juliaCMD(julia_bin, juliaStart), wait = FALSE)
+                               if(!testJSON(julia_bin)) { # try to add the JSON module
+                                   jsonAdd <- system.file("julia","addJSON.jl", package = .packageName)
+                                   base::system(juliaCMD(julia_bin, jsonAdd))
+                                   if(!testJSON(julia_bin))
+                                       stop("No JSON module in julia and unable to add:  try to add this module in julia")
                                }
+                               base::system(juliaCMD(julia_bin, juliaStart), wait = FALSE)
                            }
-                           ## else, the Julia process should have been started and have called accept()
-                           ## for the chosen port
+                       }
+                       ## else, the Julia process should have been started and have called accept()
+                       ## for the chosen port
+                       if(verbose)
+                           cat(gettextf(
+                               "Starting connection to %s on port %d\n", host, port))
+                       for(i in 1:300) {
+                           ## waiting for Julia proc. to establish connection
+                           Sys.sleep(.2)
+                           sc <- tryCatch(socketConnection(host = host, port = port, block = TRUE), error = function(e) e,
+                                          warning = function(w)w)
+                           if(is(sc, "connection"))
+                               break
                            if(verbose)
-                               cat(gettextf(
-                                            "Starting connection to %s on port %d\n", host, port))
-                           for(i in 1:300) {
-                               ## waiting for Julia proc. to establish connection
-                               Sys.sleep(.2)
-                               sc <- tryCatch(socketConnection(host = host, port = port, block = TRUE), error = function(e) e,
-                                              warning = function(w)w)
-                               if(is(sc, "connection"))
-                                   break
-                               if(verbose)
-                                   cat(if(i==1) "Waiting." else ".")
-                           }
-                           cat("\n")
-                           if(!is(sc, "connection"))
-                               stop(gettextf("Unable to start Julia connection on port %s: %s",
-                                             port, sc$message))
-                           connection <<- sc
-                           ## now, actions such as setting the path can be performed
-                           startupActions()
-                       })
+                               recover()
+                           if(verbose)
+                               cat(if(i==1) "Waiting." else ".")
+                       }
+                       cat("\n")
+                       if(!is(sc, "connection"))
+                           stop(gettextf("Unable to start Julia connection on port %s: got the error/warning message \"%s\"",
+                                         port, sc$message))
+                       connection <<- sc
+                       ## now, actions such as setting the path can be performed
+                       startupActions()
+                   })
 
 ## The definition of Julia-dependent methods
 JuliaInterface$methods(

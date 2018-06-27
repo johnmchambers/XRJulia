@@ -7,8 +7,7 @@
 }
 \description{
 A Julia interface structured according to the general
-form described in package XR and the book (in progress)
-"Extending R"
+form described in package XR and the book "Extending R".
 }
 \author{
 John Chambers

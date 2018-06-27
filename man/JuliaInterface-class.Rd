@@ -13,11 +13,27 @@ reference to the evaluator.  The function \code{RJulia()} returns an evaluator o
 \section{Fields}{
 
 \describe{
-\item{\code{port,host}}{The parameters for communicating with the Julia evaluator.}
+\item{\code{host}}{The remote host, as a character string.  By default this will be the local host, and initializing the evalutor
+will set the field to "localhost".}
 
-\item{\code{julia\_bin}}{The command for starting a Julia process.}
+\item{\code{port}}{The port number for commuicating to Julia from this evalutor.
+By default, the port is set by adding the evaluator number-1 to a base port number.
+By default the base port is randomly chosen at package load time (this strategy may change).
 
-\item{\code{connection}}{The connection object through which commands are sent to Julia}
+The port may be controlled in two ways.  If you know a good range or set of ports, it will
+be preferrable to supply unique port values (integer) in the initialization call.
+A less direct way is set the R option "JuliaBasePort", which will then be used as the base port.
+Since evaluator numbers are used to increment the port, the call to \code{\link{options}} should normally come before 
+initializing the first Julia evaluator.}
+
+\item{\code{julia_bin}}{The location for an executable version of the Julia interpreter.  By default, this assumes there is a file named \code{"julia"}
+on the command-line  search path.  If Julia is not usable from the command line or if you want to run with a different version, supply
+the executable file name as this argument.  It is also possible to set the location for all evaluators by setting the shell variable
+\code{JULIA_BIN} to this location \emph{before} starting R.}
+
+\item{\code{connection}}{The connection object through which commands are sent to Julia.  Normally will be created by the initialization
+of the evaluator.  Should only be supplied as a currently
+open socket on which to communicate with the Julia interpreter.}
 }}
 
 \section{Methods}{

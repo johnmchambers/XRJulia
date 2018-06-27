@@ -1,12 +1,12 @@
 Package: XRJulia
 Type: Package
 Title: Structured Interface to Julia
-Version: 0.7.7
-Date: 2018-03-02
+Version: 0.7.8
+Date: 2018-06-26
 Author: John M. Chambers
 Maintainer: John Chambers <jmc@r-project.org>
 Description: A Julia interface structured according to the general
-	     form described in package XR and in the book "Extending R".
+	     form described in package 'XR' and in the book "Extending R".
 License: GPL (>= 2)
 Imports: methods, XR
 NeedsCompilation: no
