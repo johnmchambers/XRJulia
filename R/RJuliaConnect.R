@@ -22,10 +22,13 @@
 #' @field connection The connection object through which commands are sent to Julia.  Normally will be created by the initialization
 #' of the evaluator.  Should only be supplied as a currently
 #' open socket on which to communicate with the Julia interpreter.
+#' @field serverWrapup a vector of actions for the ServerEval to take after evaluation.  Used to clean up after special operations,
+#' such as sending large objects to Julia.
 JuliaInterface <- setRefClass("JuliaInterface",
                       fields = c( port = "integer", host = "character",
                           julia_bin = "character",
-                          connection = "ANY"),
+                          connection = "ANY",
+                          serverWrapup = "character"),
                       contains = "Interface")
 
 JuliaInterface$methods(
@@ -116,6 +119,9 @@ JuliaInterface$methods(
 JuliaInterface$methods(
     ServerEval = function(expr,key = "", get = NA) {
         value <- ServerTask("eval", expr, key, get)
+        on.exit(serverWrapup <<- character())
+        for(action in serverWrapup)
+            base::eval(base::parse(text = action))
         XR::valueFromServer(value, key, get, .self)
     },
     ServerRemove = function(what)
@@ -431,6 +437,12 @@ typeToJulia <- function(object, prototype) {
            typeToJSON(object, prototype))
 }
 
+notSimpleVector <- function(object)
+    (isS4(object) && !is.null(attr(object, "class"))) ||
+              ## exclude the S4 case where the bit is on to force a JSON array
+                  is.list(attributes(object)) || # S3 class or structure
+                  is.recursive(object)
+
 ## NOT Roxygen Default Julia method for asServerObject()
 ## NOT Roxygen
 ## NOT Roxygen The default method for JuliaObject is modelled on the overall default method in XR.
@@ -438,14 +450,29 @@ typeToJulia <- function(object, prototype) {
 ## NOT Roxygen @param prototype The proxy for a prototype of the Julia object, supplied by the evaluator.
 setMethod("asServerObject", c("ANY", "JuliaObject"),
            function(object, prototype) {
-               if((isS4(object) && !is.null(attr(object, "class"))) ||
-              ## exclude the S4 case where the bit is on to force a JSON array
-                  is.list(attributes(object)) || # S3 class or structure
-                  is.recursive(object))
+               if(notSimpleVector(object))
                   .asServerList(XR::objectDictionary(object), prototype)
               else #<FIXME> There are some edge cases and NA is not handled well
                   typeToJulia(object, prototype)
            })
+
+largeObjectSize <- 1e4
+setMethod("asServerObject", c("numeric", "JuliaObject"),
+          function(object, prototype) {
+              if(object.size(object) < largeObjectSize || notSimpleVector(object))
+                  callNextMethod()
+              else {
+                  file <- tempfile("toJulia")
+                  on.exit(addServerWrapup(gettextf('base::system2("rm","%s")', file)))
+                  writeBin(as.vector(object), file)
+                  gettextf('binaryRVector("%s", "%s", %d)', file, typeof(object), length(object))
+              }
+          })
+
+addServerWrapup <- function(command, .ev = RJulia())
+    .ev$serverWrapup <- c(.ev$serverWrapup,command)
+
+
 
 ## these methods are "copied" from XR only to avoid ambiguity when selecting
 ## Otherwise they score the same as the c("ANY", "JuliaObject") method
