@@ -433,7 +433,18 @@ setMethod("asServerObject", c("list", "JuliaObject"),
 typeToJulia <- function(object, prototype) {
     switch(typeof(object),
            complex = paste0("complex(", typeToJSON(Re(object), prototype), ", ",
-           typeToJSON(Im(object), prototype), ")"),
+                            typeToJSON(Im(object), prototype), ")"),
+           ## typeToJSON() will create an RData object if there are NA's:  won't parse in Julia
+           ## Instead two work arounds but with warning
+           integer = , logical = if(any(is.na(object))) {
+               warning(gettextf("Julia cannot represent missing values in type %s; converting to double", typeof(object)))
+               typeToJSON(as.numeric(object), prototype)
+           } else typeToJSON(object, prototype),
+           character = { if(any(is.na(object))) {
+               warning("Julia cannot represent missing values in strings; converting to \"<NA>\"")
+               object[is.na(object)] <- "<NA>"
+                         }
+           typeToJSON(object, prototype)},
            typeToJSON(object, prototype))
 }
 
