@@ -52,7 +52,7 @@ function makeRObject(object::Dict{AbstractString,Any})
 end
 
 ## tables for converting R type/class to Julia:  NOT CURRENTLY USED
-juliaTypes = Dict{String,DataType}( "integer" => Int64, "numeric" => Float64, "character" => String,
+juliaTypes = Dict{String,DataType}( "integer" => Int32, "numeric" => Float64, "character" => String,
                 "logical" => Bool,  "double" => Float64)
 
 juliaArrayTypes = Dict{String,DataType}( "integer" => Array{Int64,1}, "numeric" => Array{Float64,1},
@@ -356,4 +356,9 @@ function classInfo(what::DataType)
     end
      Dict{RName, Any}("fields" => fields, "readOnly" => readOnly )
 end
+
+function binaryRVector(file::AbstractString, vtype::AbstractString, length::Int64)
+    read!(file, Array{juliaTypes[vtype]}(length))
+    end
+  
 end #module XRJulia
