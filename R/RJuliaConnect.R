@@ -24,11 +24,13 @@
 #' open socket on which to communicate with the Julia interpreter.
 #' @field serverWrapup a vector of actions for the ServerEval to take after evaluation.  Used to clean up after special operations,
 #' such as sending large objects to Julia.
+#' @field largeObject Vectors with length bigger than this will be handled specially.  See \link{largeVectors}.  Default currently 1000.
 JuliaInterface <- setRefClass("JuliaInterface",
                       fields = c( port = "integer", host = "character",
                           julia_bin = "character",
                           connection = "ANY",
-                          serverWrapup = "character"),
+                          serverWrapup = "character",
+                          largeObject = "integer"),
                       contains = "Interface")
 
 JuliaInterface$methods(
@@ -37,6 +39,8 @@ JuliaInterface$methods(
                        'The initialize method attempts to open a socket unless the "connection" field in the evaluator is an open socket.  Else, if the host is the local host an attempt is made to start a Julia process.  See the documentation of the interface class for details.'
                        languageName <<- "Julia"
                        prototypeObject <<- JuliaObject()
+                       prototypeObject$.ev <<- .self
+                       largeObject <<- 1000L
                        callSuper(...) # initialize object & register it
                        if(is(connection, "connection")) {
                            if(is(connection, "sockconn") && isOpen(connection))
@@ -467,10 +471,49 @@ setMethod("asServerObject", c("ANY", "JuliaObject"),
                   typeToJulia(object, prototype)
            })
 
-largeObjectSize <- 1e4
-setMethod("asServerObject", c("numeric", "JuliaObject"),
+#' Internal Computations for Large Vectors
+#'
+#' @name largeVectors
+#'
+#' Large vectors will be slow to transfer as JSON, and may fail in Julia.  Internal computations have
+#' been added to transfer vectors of types real, integer, logical and character by more direct
+#' computations when they are large.  The computations, some limitations and their implementation are
+#' described here.
+#'
+#' R and Julia both have the concept of numeric or logiacl arrays whose elements have a consistent type and both implement
+#' these (following Fortran) as contiguous blocks in memory, augmented by length or dimension information.
+#' JSON has no such concept, so vectors or arrays in R must send their data as a JSON list.  This will
+#' become inefficient for very large data of these classes.  Users have reported failure by Julia to
+#' parse the corresponding JSON.
+#'
+#' The 'XRJulia' package (as of version 0.7.9) implements special code to send vectors to Julia, by
+#' writing an intermediate file that Julia reads.  The actual text sent to Julia is a call to the
+#' relevant Julia function.  The code is triggered within the methods for the \code{asServerObject}
+#' function, so vectors should be transferred this way whether on their own or as part of a larger structure,
+#' such as an array or the column of a data frame.
+#'
+#' For numeric, integer and logical vectors, the method uses binary writes and reads, which are defined
+#' in both R and Julia.  For logicals, the internal representation in R corresponds to an integer, which
+#' the Julia side casts to a boolean array.
+#'
+#' Character vectors cannot be handled this way, partly because of a weirdness in binary reads and writes
+#' for string arrays in Julia.  Where R character vectors can be written in binary form and then read
+#' back in, writing a String array in Julia effectively writes a single string, which cannot then
+#' be recovered.  The current workaround is to write the vector as lines of text, which Julia then reads.
+#' The limitation is that new line characters within the text will break this, so R checks this by
+#' reading the file back and checking the length of the vector.  If the check fails, the default JSON
+#' method will be used.  If you guarantee there are no new lines internally, the check can be
+#' surpressed by setting the option: \code{options(noNewLines = TRUE)}.
+#'
+#' A large object is currently defined as a vector of length greater than the field \code{largeObject}
+#' in the evaluator.  By default, this is 1000, but can be changed either at initialization of the
+#' evaluator or later.
+
+setClassUnion("simpleVectorJulia", c("numeric", "integer", "logical"))
+
+setMethod("asServerObject", c("simpleVectorJulia", "JuliaObject"),
           function(object, prototype) {
-              if(object.size(object) < largeObjectSize || notSimpleVector(object))
+              if(length(object) < prototype$.ev$largeObject || notSimpleVector(object))
                   callNextMethod()
               else {
                   file <- tempfile("toJulia")
@@ -478,6 +521,23 @@ setMethod("asServerObject", c("numeric", "JuliaObject"),
                   writeBin(as.vector(object), file)
                   gettextf('binaryRVector("%s", "%s", %d)', file, typeof(object), length(object))
               }
+          })
+
+setMethod("asServerObject", c("character", "JuliaObject"),
+          function(object, prototype) {
+              n <- length(object)
+              if(n < prototype$.ev$largeObject || notSimpleVector(object) )
+                 return(callNextMethod())
+              file <- tempfile("toJulia")
+              on.exit(addServerWrapup(gettextf('base::system2("rm","%s")', file)))
+              writeLines(as.vector(object), file)
+              ## check no internal new lines, unless told not to by an option set by user
+              if(!identical(getOption("noNewLines"), TRUE)) {
+                  nlines <- length(readLines(file))
+                  if(!identical(n, nlines)) # ?? should we warn?
+                      return(callNextMethod())
+              }
+              gettextf("readRlines(\"%s\", %d)", file, length(object))
           })
 
 addServerWrapup <- function(command, .ev = RJulia())
