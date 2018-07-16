@@ -475,14 +475,17 @@ setMethod("asServerObject", c("ANY", "JuliaObject"),
 #'
 #' @name largeVectors
 #'
+#' @section Sending Large Vectors to Julia:
 #' Large vectors will be slow to transfer as JSON, and may fail in Julia.  Internal computations have
 #' been added to transfer vectors of types real, integer, logical and character by more direct
 #' computations when they are large.  The computations, some limitations and their implementation are
 #' described here.
 #'
-#' R and Julia both have the concept of numeric or logiacl arrays whose elements have a consistent type and both implement
+#'
+#' R and Julia both have the concept of numeric (floating point) and integer arrays whose elements have a consistent type and both implement
 #' these (following Fortran) as contiguous blocks in memory, augmented by length or dimension information.
-#' JSON has no such concept, so vectors or arrays in R must send their data as a JSON list.  This will
+#' 
+#' JSON has no such concept, so interface evaluators using the standard JSON form provided by 'XR' must send such data as a JSON list.  This will
 #' become inefficient for very large data of these classes.  Users have reported failure by Julia to
 #' parse the corresponding JSON.
 #'
@@ -505,8 +508,8 @@ setMethod("asServerObject", c("ANY", "JuliaObject"),
 #' method will be used.  If you guarantee there are no new lines internally, the check can be
 #' surpressed by setting the option: \code{options(noNewLines = TRUE)}.
 #'
-#' A large object is currently defined as a vector of length greater than the field \code{largeObject}
-#' in the evaluator.  By default, this is 1000, but can be changed either at initialization of the
+#' A large object is currently defined as a vector of length greater than the integer field \code{largeObject}
+#' in the evaluator.  By default, this is 1000L, but can be changed either at initialization of the
 #' evaluator or later.
 
 setClassUnion("simpleVectorJulia", c("numeric", "integer", "logical"))

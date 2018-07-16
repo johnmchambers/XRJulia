@@ -34,6 +34,11 @@ the executable file name as this argument.  It is also possible to set the locat
 \item{\code{connection}}{The connection object through which commands are sent to Julia.  Normally will be created by the initialization
 of the evaluator.  Should only be supplied as a currently
 open socket on which to communicate with the Julia interpreter.}
+
+\item{\code{serverWrapup}}{a vector of actions for the ServerEval to take after evaluation.  Used to clean up after special operations,
+such as sending large objects to Julia.}
+
+\item{\code{largeObject}}{Vectors with length bigger than this will be handled specially.  See \link{largeVectors}.  Default currently 1000.}
 }}
 
 \section{Methods}{
