@@ -38,7 +38,12 @@ open socket on which to communicate with the Julia interpreter.}
 \item{\code{serverWrapup}}{a vector of actions for the ServerEval to take after evaluation.  Used to clean up after special operations,
 such as sending large objects to Julia.}
 
-\item{\code{largeObject}}{Vectors with length bigger than this will be handled specially.  See \link{largeVectors}.  Default currently 1000.}
+\item{\code{largeObject}}{Vectors with length bigger than this will be handled specially.  See \link{largeVectors}.  Default currently 1000.  To change this, call \code{\link{juliaOptions}()}
+to set option \code{largeObject}.}
+
+\item{\code{fileBase}}{a pattern for file names that the evaluator will use in Julia for various data transfer
+and other purposes.  The evaluator appends "_1", "_2", etc.  To change this, call \code{\link{juliaOptions}()}
+to set option \code{fileBase}.  It is initiaized to an R tempfile with pattern \code{"Julia"}.}
 }}
 
 \section{Methods}{

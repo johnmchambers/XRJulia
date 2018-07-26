@@ -11,3 +11,10 @@ mustbe(numericTest, ev$Get(ev$Send(numericTest)))
 mustbe(integerTest, unlist(ev$Get(ev$Send(integerTest))))
 mustbe(logicalTest, unlist(ev$Get(ev$Send(logicalTest))))
 mustbe(characterTest, unlist(ev$Get(ev$Send(characterTest))))
+
+for(pwr in 3:7) {
+  cc =sample(characterTest, as.integer(10^pwr), replace = TRUE)
+  cat("pwr = ", pwr, "\n")
+  cat("Sending: ", system.time(c2 <- ev$Send(cc)), "\n")
+  cat("Getting: ", system.time(c3 <-  ev$Get(c2)), "\n")
+}

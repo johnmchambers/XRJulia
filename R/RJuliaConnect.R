@@ -24,13 +24,19 @@
 #' open socket on which to communicate with the Julia interpreter.
 #' @field serverWrapup a vector of actions for the ServerEval to take after evaluation.  Used to clean up after special operations,
 #' such as sending large objects to Julia.
-#' @field largeObject Vectors with length bigger than this will be handled specially.  See \link{largeVectors}.  Default currently 1000.
+#' @field largeObject Vectors with length bigger than this will be handled specially.  See \link{largeVectors}.  Default currently 1000.  To change this, call \code{\link{juliaOptions}()}
+#' to set option \code{largeObject}.
+#' @field fileBase a pattern for file names that the evaluator will use in Julia for various data transfer
+#' and other purposes.  The evaluator appends "_1", "_2", etc.  To change this, call \code{\link{juliaOptions}()}
+#' to set option \code{fileBase}.  It is initiaized to an R tempfile with pattern \code{"Julia"}.
 JuliaInterface <- setRefClass("JuliaInterface",
                       fields = c( port = "integer", host = "character",
                           julia_bin = "character",
                           connection = "ANY",
                           serverWrapup = "character",
-                          largeObject = "integer"),
+                          contains = "Interface",
+                          largeObject = "integer",
+                          fileBase = "character"),
                       contains = "Interface")
 
 JuliaInterface$methods(
@@ -41,6 +47,7 @@ JuliaInterface$methods(
                        prototypeObject <<- JuliaObject()
                        prototypeObject$.ev <<- .self
                        largeObject <<- 1000L
+                       fileBase <<- tempfile(pattern = "Julia")
                        callSuper(...) # initialize object & register it
                        if(is(connection, "connection")) {
                            if(is(connection, "sockconn") && isOpen(connection))
@@ -117,6 +124,8 @@ JuliaInterface$methods(
                        connection <<- sc
                        ## now, actions such as setting the path can be performed
                        startupActions()
+                       ## set some julia options--either defaults or specified in the constructor call.
+                       juliaOptions(largeObject = largeObject, fileBase = fileBase, .ev = .self)
                    })
 
 ## The definition of Julia-dependent methods
@@ -413,7 +422,7 @@ setMethod("asServerObject", c("array", "JuliaObject"),
         paste("[", paste(vals, collapse = ", "), "]")
     else {
         onames <- XR::nameQuote(XR::fillNames(onames))
-        paste("Dict(", paste(onames, vals, sep = " => ", collapse = ", "),
+        paste("Dict{String, Any}(", paste(onames, vals, sep = " => ", collapse = ", "),
               ")")
     }
 }
@@ -475,18 +484,21 @@ setMethod("asServerObject", c("ANY", "JuliaObject"),
 #'
 #' @name largeVectors
 #'
-#' @section Sending Large Vectors to Julia:
+#' @section Sending Large Vectors between R and Julia:
 #' Large vectors will be slow to transfer as JSON, and may fail in Julia.  Internal computations have
 #' been added to transfer vectors of types real, integer, logical and character by more direct
-#' computations when they are large.  The computations, some limitations and their implementation are
+#' computations when they are large.  The computations and their implementation are
 #' described here.
 #'
 #'
 #' R and Julia both have the concept of numeric (floating point) and integer arrays whose elements have a consistent type and both implement
 #' these (following Fortran) as contiguous blocks in memory, augmented by length or dimension information.
+#' They also both have a mechanism for arrays of character strings, class \code{"character"} in R and array type
+#' \code{Array{String, 1}} in Julia.
+#' Julia has arrays for boolean data; R stores the corresponding \code{logical} as integers.
 #' 
-#' JSON has no such concept, so interface evaluators using the standard JSON form provided by 'XR' must send such data as a JSON list.  This will
-#' become inefficient for very large data of these classes.  Users have reported failure by Julia to
+#' JSON has no such concepts, so interface evaluators using the standard JSON form provided by 'XR' must send such data as a JSON list.  This will
+#' become inefficient for very large data from these classes.  Users have reported failure by Julia to
 #' parse the corresponding JSON.
 #'
 #' The 'XRJulia' package (as of version 0.7.9) implements special code to send vectors to Julia, by
@@ -495,24 +507,50 @@ setMethod("asServerObject", c("ANY", "JuliaObject"),
 #' function, so vectors should be transferred this way whether on their own or as part of a larger structure,
 #' such as an array or the column of a data frame.
 #'
-#' For numeric, integer and logical vectors, the method uses binary writes and reads, which are defined
-#' in both R and Julia.  For logicals, the internal representation in R corresponds to an integer, which
-#' the Julia side casts to a boolean array.
+#' Similarly, large arrays to be retrieved in R by the \code{Get()} method or the optional argument \code{.get = TRUE}
+#' will be written to an intermediate file by Julia and read by R.
 #'
-#' Character vectors cannot be handled this way, partly because of a weirdness in binary reads and writes
+#' As vectors become large, direct transfer becomes \emph{much} faster.  On a not-very-powerful laptop,
+#' vectors of length \code{10^7} transfer in an elapsed time of a few seconds.  Character vectors are slightly
+#' slower than numeric, as explained below, but in all cases it would be hard to do much computation with
+#' the data that did not swamp the cost of transfer.  That said, as always it's more sensible to transfer
+#' data once and then use the corresponding proxy object in later calls.
+#' 
+#' @section Details:
+#' For all vectors, the method uses binary writes and reads, which are defined
+#' in both R and Julia.  No special computationss are needed for numeric, integer, complex and raw.
+#' For these, the R binary representation corresponds to array types in Julia.
+#' The special pseudo-value \code{NA} is defined for vectors in R, but no corresponding concept exists
+#' in Julia.  For numeric and complex vectors, the floating-point pattern \code{NaN} is used.
+#' For all other vectors, a warning is issued and either a numeric object or a special character string is used instead.
+#' 
+#' For logicals, the internal representation in R uses integers.
+#' The Julia code when data is sent from R casts the integer array to a boolean array.
+#' On the return side, the Julia boolean array is converted to integer before writing.
+#'
+#' Character vectors take a little more work, partly because of a weirdness in binary writes
 #' for string arrays in Julia.  Where R character vectors can be written in binary form and then read
-#' back in, writing a String array in Julia effectively writes a single string, which cannot then
-#' be recovered.  The current workaround is to write the vector as lines of text, which Julia then reads.
-#' The limitation is that new line characters within the text will break this, so R checks this by
-#' reading the file back and checking the length of the vector.  If the check fails, the default JSON
-#' method will be used.  If you guarantee there are no new lines internally, the check can be
-#' surpressed by setting the option: \code{options(noNewLines = TRUE)}.
+#' back in, writing a \code{String} array in Julia omits the end-of-string character,
+#' effectively writing a single string, from which the array cannot
+#' be recovered.  Communicating the entire vector to Julia requires
+#' that the Julia side uses this information to split the single string resulting from the R binary write
+#' by matching the end-of-string character explicitly
+#' For sending back to R, the Julia code
+#' appends an end-of-string character to each string before writing the array to a file.  This produces the
+#' R format for a binary read of a character vector.
 #'
-#' A large object is currently defined as a vector of length greater than the integer field \code{largeObject}
-#' in the evaluator.  By default, this is 1000L, but can be changed either at initialization of the
-#' evaluator or later.
+#' Two fields in the evaluator object control details.
+#' A large object is defined as a vector of length greater than the integer field \code{largeObject}.
+#' Julia creates intermediate files for sending large arrays to R by appending sequenctial numbers to a
+#' character field \code{fileBase}.  By default, \code{largeObject} and  \code{fileBase} is obtained from
+#' \code{\link{tempfile}()} with pattern \code{"Julia"}. Note that all the files are removed at the end of
+#' the evaluation of the expression sending or getting the relevant objects.
+#'
+#' Since these fields must be known to the Julia evaluator, they should \emph{not} be set directly---this will
+#' have no effect.  Instead call the function \code{\link{juliaOptions}()} with these parameter names.
+#'
 
-setClassUnion("simpleVectorJulia", c("numeric", "integer", "logical"))
+setClassUnion("simpleVectorJulia", c("numeric", "integer", "logical", "character", "complex", "raw"))
 
 setMethod("asServerObject", c("simpleVectorJulia", "JuliaObject"),
           function(object, prototype) {
@@ -526,22 +564,19 @@ setMethod("asServerObject", c("simpleVectorJulia", "JuliaObject"),
               }
           })
 
-setMethod("asServerObject", c("character", "JuliaObject"),
-          function(object, prototype) {
-              n <- length(object)
-              if(n < prototype$.ev$largeObject || notSimpleVector(object) )
-                 return(callNextMethod())
-              file <- tempfile("toJulia")
-              on.exit(addServerWrapup(gettextf('base::system2("rm","%s")', file)))
-              writeLines(as.vector(object), file)
-              ## check no internal new lines, unless told not to by an option set by user
-              if(!identical(getOption("noNewLines"), TRUE)) {
-                  nlines <- length(readLines(file))
-                  if(!identical(n, nlines)) # ?? should we warn?
-                      return(callNextMethod())
-              }
-              gettextf("readRlines(\"%s\", %d)", file, length(object))
-          })
+# no longer used
+## setMethod("asServerObject", c("character", "JuliaObject"),
+##           function(object, prototype) {
+##               n <- length(object)
+##               if(n < prototype$.ev$largeObject || notSimpleVector(object) )
+##                  return(callNextMethod())
+##               file1 <- tempfile("toJulia")
+##               file2 <- tempfile("toJulia")
+##               on.exit(addServerWrapup(gettextf('base::system2("rm","%s")', paste(file1, file2))))
+##               writeChar(as.vector(object), file1, eos = NULL) # write with no trailing \0 bytes
+##               writeBin(nchar(object), file2)
+##               gettextf("readRStrings(\"%s\", \"%s\", %d)", file1, file2, length(object))
+##           })
 
 addServerWrapup <- function(command, .ev = RJulia())
     .ev$serverWrapup <- c(.ev$serverWrapup,command)
@@ -624,6 +659,37 @@ juliaImport <- function( ...,  evaluator) {
         XR::serverImport("JuliaInterface", ...)
     else
         evaluator$Import(...)
+}
+
+#' Get and/or Set Internal Option Parameters in the Julia Evaluator
+#'
+#' The Julia code for an evaluator maintains a dictionary, \code{RJuliaParams}, of named parameters used to control
+#' various evaluation details.  These and any other desired options can be queried and/or set by calls to \code{juliaOptions}.
+#' 
+#' The function behaves essentially like the \code{\link{options}()} function in R itself, returning a list of the current entries
+#' corresponding to unnamed character arguments and setting the parameters named to the value in the corresponding named argument
+#' to \code{juliaOptions}.
+#' If no parameter corresponding to a name has been set, requesting the corresponding returned value is \code{nothing}, \code{NULL} in R.
+#' @param ... arguments to the corresponding method for an evaluator object.
+#' @param .ev The evaluator object to use.  By default, and usually, the current evaluator.
+#' @return A named list of those parameters requested (as unnamed character string arguments).  If none, an empty list.
+#' Note that options are always returned converted to R, not as proxyies.
+juliaOptions <- function(..., .ev = XRJulia::RJulia()) {
+    args <- list(...)
+    toSet <- nzchar(allNames(args))
+    value <- list()
+    if(any(toSet)) {
+        setArgs <- args[toSet]
+        ## check for some special options and set the corresponding field in the evaluator.
+        ## This also has the effect of validating the object's class.
+        for(special in c("largeObject", "fileBase"))
+            if(!is.null(setArgs[[special]]))
+               .ev$field(special, setArgs[[special]])
+        .ev$Call("RJuliaSetParams", setArgs)
+    }
+    if(any(!toSet))
+        value <- .ev$Call("RJuliaGetParams", unlist(args[!toSet]), .get = TRUE)
+    value
 }
 
 
@@ -723,3 +789,26 @@ setMethod("initialize", "from_Julia",
         callNextMethod(.Object, ..., referenceClass = TRUE)
     }
 )
+
+## a class for returning large vectors in simple form
+setClass("vector_R_direct", slots = c(file = "character", type = "character", length = "integer"))
+
+setMethod("asRObject", c("vector_R_direct", "JuliaInterface"),
+          function(object, evaluator) {
+              on.exit(base::system(paste("rm ",object@file)))
+              readBin(object@file, object@type, object@length)
+          })
+
+## ## a class for returning long character vectors
+## setClass("character_R_direct", slots = c(stringFile = "character", nbytes = "integer", ncharsFile = "character", length = "integer"))
+
+## setMethod("asRObject", c("character_R_direct", "JuliaInterface"),
+##           function(object, evaluator) {
+##               on.exit(system(paste("rm ",object@stringFile, object@ncharsFile)))
+##               string <- readChar(object@stringFile, object@nbytes, TRUE)
+##               n <- object@length
+##               lens <- readBin(object@ncharsFile, "integer", n)
+##               last <- cumsum(lens)
+##               first <- c(0L, last[-n])+1
+##               substring(string,first,last)
+##           })

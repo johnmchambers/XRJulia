@@ -53,16 +53,21 @@ end
 
 ## tables for converting R type/class to Julia: see binaryRVector()
 juliaTypes = Dict{String,DataType}( "integer" => Int32, "numeric" => Float64, "character" => String,
-                "logical" => Int32,  "double" => Float64)
+                "logical" => Int32, "complex" => Complex{Float64}, "raw" => UInt8, "double" => Float64)
 
 juliaArrayTypes = Dict{String,DataType}( "integer" => Array{Int64,1}, "numeric" => Array{Float64,1},
                      "character" => Array{String,1},
                      "logical" => Array{Bool,1}, "double" => Array{Float64,1} )
 
 ### Converting Array{} types in Julia to basic R vector classes (Not actual typeof())
-RTypes = Dict{String, String}("Array{Int64,1}" => "integer", "Array{Float64,1}" => "numeric", "Array{String,1}" => "character",
+RTypes = Dict{String, String}("Array{Int32,1}" => "integer", "Array{Float64,1}" => "numeric", "Array{String,1}" => "character",
           "Array{Complex{Float64},1}" => "complex",
           "Array{Bool,1}" => "logical", "Array{Any,1}" => "list" )
+          
+## the reverse:  making data compatible with R vector types
+forRTypes = Dict{String, DataType}("integer" => Array{Int32,1} , "numeric" => Array{Float64,1} , "character" => Array{String,1},
+          "complex" =>Array{Complex{Float64},1},
+           "logical" =>Array{Bool,1}, "list" => Array{Any,1} )
 
 ## the default method:  No idea what to do; presumably junk on the connectio.
 function RJuliaCommand(command)
@@ -145,11 +150,46 @@ function RJuliaQuit()
     quit() # that's all follks!
 end
 
+## options for Julia.  Anything can be set here via the R juliaOptions() function.  The values below will be
+## reset during the initialize() method for the evaluator.
+RJuliaParams = Dict{AbstractString, Any}("largeObject" => 1000, "fileBase" => "./juliaToR",
+       "fileBaseIndex" => 0)
+
+getVectorFile = function()
+    n = RJuliaParams["fileBaseIndex"] + 1
+    RJuliaParams["fileBaseIndex"] = n
+    string(RJuliaParams["fileBase"],"_",n)
+end
+
+function RJuliaSetParams(values::Dict{String, Any})
+    for what in keys(values)
+        RJuliaParams[what] = values[what]
+    end
+end
+
+function RJuliaGetParams(what::Array{String, 1})
+    value = Dict{String,Any}()
+    for key in what
+         if haskey(RJuliaParams, key)
+            value[key] = RJuliaParams[key]
+        else
+            value[key] = nothing
+        end
+    end
+    value
+end
+
+function RJuliaGetParams(what::String)
+    names = Array{String,1}(1)
+    names[1] = what
+    RJuliaGetParams(names)
+end
+    
 ## the names in this table need to match the jlSendTask calls in  RJuliaConnect.R
 TaskFunctions = Dict{String, Function}( "get" => RJuliaGet,
                   "eval" => RJuliaEval,
-                 "remove" => RJuliaRemove, "quit" => RJuliaQuit)
-
+                 "remove" => RJuliaRemove, "quit" => RJuliaQuit,
+                   "params" => RJuliaSetParams)
 ## construct the representation of an R object of class InterfaceError
 function conditionToR(msg, err = nothing)
     if err != nothing
@@ -312,6 +352,12 @@ function vectorR(x)
     ## a mechanism here to set the "type" slot to the actual Julia typeStr, with
     ## a corresponding mechanism in the method for asROject(), ("vector_R", "JuliaInterface")
     mm = Array{Bool}(0) # missing values
+    if length(x) > RJuliaParams["largeObject"]
+        if(haskey(to_R_direct, rtype))
+        method = to_R_direct[rtype]
+        return method(rtype, x)
+        end
+    end
     if rtype == "list"
         value = Array{Any}(size(x))
         for i in 1:length(x)
@@ -337,6 +383,40 @@ function vectorR(x)
     RObject("vector_R","XR", "S4", nothing, slots)
 end
 
+## functions for direct writing of long vectors
+function vector_R_binary(rtype, x)
+    if(rtype == "logical")
+        x = convert(forRTypes["integer"], x)
+    elseif rtype == "character"
+        function eos(xi::String) xi * "\0" end #need EOS to separate strings
+        x = map(eos, x)
+    end
+    file = getVectorFile()
+    write(file, x)
+    slots = Dict{RName, Any}("file" => file, "type" => rtype, "length" => length(x))
+    RObject("vector_R_direct","XR", "S4", nothing, slots)
+end
+
+    # no longer used
+# ## for string arrays, Julia writes the strings w/o terminators.
+# ## So we return that file plus a second file with the array of string lengths.
+# function vector_R_strings(rtype, x)
+#     file1= getVectorFile()
+#     nbytes = write(file1, x) # the total character count, with no string terminators (? chars, not bytes?)
+#     ## a vector of the nchars, compatible with R integer vector
+#     lens = convert(forRTypes["integer"], map(length,x))
+#     file2 = getVectorFile()
+#     write(file2, lens)
+#     slots = Dict{RName, Any}("stringFile" => file1, "nbytes" => nbytes, "ncharsFile" => file2, "length" => length(x))
+#     RObject("character_R_direct","XR", "S4", nothing, slots)
+# end
+
+to_R_direct = Dict{AbstractString, Any}(
+    "numeric" => vector_R_binary, "integer" => vector_R_binary,
+    "logical" => vector_R_binary, "character" => vector_R_binary)
+    
+
+
 function fieldNames(what::DataType)
     syms = fieldnames(what)
     n = length(syms)
@@ -358,8 +438,11 @@ function classInfo(what::DataType)
 end
 
 function binaryRVector(file::AbstractString, vtype::AbstractString, length::Int64)
+    if vtype == "character"
+        return readRStrings(file, length)
+    end
     value = read!(file, Array{juliaTypes[vtype]}(length))
-    if(vtype == "logical")
+    if vtype == "logical"
         bool = Array{Bool}(length)
         for i in 1:length
             bool[i] = value[i] != 0
@@ -369,14 +452,42 @@ function binaryRVector(file::AbstractString, vtype::AbstractString, length::Int6
         value
     end
  end
-    
-function readRlines(file::AbstractString, n::Int64)
-    data = readlines(file)
-    if length(data) == n
-        data
-    else
-        false
+
+function readRStrings(file::AbstractString, n::Int64)
+    text = convert(String, read(file))
+    value = convert(Array{String, 1}, split(text, '\0', keep = false))
+    if length(value) != n
+        write(STDERR, "Warning:  expected to read $n strings with EOS separaters; got $(length(value))")
     end
+    value
 end
+
+function substrs(text, i, j)
+    function sub1(ii, jj) text[ii:jj] end
+    map(sub1, i, j)
+end
+
+function starts(lens)
+    last = 0
+    function thisend(len)
+       start = last +1
+       last = last + len
+       start
+       end
+    map(thisend, lens)
+end
+
+function ends(from, lens)
+    function plus(i,j) i+j-1 end
+    map(plus, from, lens)
+end
+
+function makeStringArray(text::String, lens)
+    ii = starts(lens)
+    jj = ends(ii, lens)
+    substrs(text, ii, jj)
+end
+
+ 
 
 end #module XRJulia
