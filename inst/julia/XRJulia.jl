@@ -62,8 +62,9 @@ juliaArrayTypes = Dict{String,DataType}( "integer" => Array{Int64,1}, "numeric" 
 ### Converting Array{} types in Julia to basic R vector classes (Not actual typeof())
 RTypes = Dict{String, String}("Array{Int32,1}" => "integer", "Array{Float64,1}" => "numeric", "Array{String,1}" => "character",
           "Array{Complex{Float64},1}" => "complex",
-          "Array{Bool,1}" => "logical", "Array{Any,1}" => "list", "Array{UInt8,1}" => "raw" )
-          
+          "Array{Bool,1}" => "logical", "Array{Any,1}" => "list", "Array{UInt8,1}" => "raw",
+          "Array{Int64,1}" => "integer") ## currently parsing JSON gives Int64, but binary transfer must be Int32. Which should win?  probably 32
+                              
 ## the reverse:  making data compatible with R vector types
 forRTypes = Dict{String, DataType}("integer" => Array{Int32,1} , "numeric" => Array{Float64,1} , "character" => Array{String,1},
           "complex" =>Array{Complex{Float64},1},
