@@ -445,8 +445,9 @@ setMethod("asServerObject", c("list", "JuliaObject"),
 
 typeToJulia <- function(object, prototype) {
     switch(typeof(object),
-           complex = paste0("complex(", typeToJSON(Re(object), prototype), ", ",
-                            typeToJSON(Im(object), prototype), ")"),
+           ## For complex, Julia requires an explicitly typed array for the real, imaginary parts
+           complex = paste0("complex(Array{Float64,1}(", typeToJSON(Re(object), prototype), ") , Array{Float64,1}(",
+                            typeToJSON(Im(object), prototype), "))"),
            ## typeToJSON() will create an RData object if there are NA's:  won't parse in Julia
            ## Instead two work arounds but with warning
            integer = , logical = if(any(is.na(object))) {
@@ -458,6 +459,7 @@ typeToJulia <- function(object, prototype) {
                object[is.na(object)] <- "<NA>"
                          }
            typeToJSON(object, prototype)},
+           raw = rawToJulia(object, prototype),
            typeToJSON(object, prototype))
 }
 
@@ -466,6 +468,13 @@ notSimpleVector <- function(object)
               ## exclude the S4 case where the bit is on to force a JSON array
                   is.list(attributes(object)) || # S3 class or structure
                   is.recursive(object)
+
+rawToJulia <- function(object, prototype) {
+    if(length(object) > 1 || isS4(object))
+        paste0("convert(Array{UInt8,1}, ", typeToJSON(as.integer(object), prototype), ")")
+    else
+        paste0("convert(UInt8, ", as.integer(object), ")")
+}
 
 ## NOT Roxygen Default Julia method for asServerObject()
 ## NOT Roxygen
@@ -554,7 +563,11 @@ setClassUnion("simpleVectorJulia", c("numeric", "integer", "logical", "character
 
 setMethod("asServerObject", c("simpleVectorJulia", "JuliaObject"),
           function(object, prototype) {
-              if(length(object) < prototype$.ev$largeObject || notSimpleVector(object))
+              useTypeToJulia <- notSimpleVector(object) # the general rule
+              ## the length test:  KLUDGE alert:  Julia v 0.6 has a bug that prints an erroneous warning the first time on complex
+              useTypeToJulia <- useTypeToJulia || (if(is.complex(object)) length(object) < 2 else 
+                  length(object) < prototype$.ev$largeObject)
+               if(useTypeToJulia)
                   callNextMethod()
               else {
                   file <- tempfile("toJulia")
@@ -749,19 +762,16 @@ setJuliaClass <- function (juliaType, module = "", fields = character(),
 }
 
 
-## these are stubs for a mechanism to convert Julia arrays of non-standard types in R
-## See the comments on the toR() methods in XRJulia.jl
-doSpecial <- function(typeStr)
-    FALSE
-doSpecialVector <- function(object)
-    NULL
+## a table to convert Julia arrays of non-standard types, not handled by the signature = c("vectorR", "ANY")
+## method for asRObject
+doSpecialVector <- list( raw = function(object) as.raw(unlist(object@data))) # should check, but these came from UInt8
 
 setMethod("asRObject", c("vector_R","JuliaInterface"),
           function (object, evaluator) {
-              if(doSpecial(object@type))
-                  doSpecialVector(object)
+              if(is.function(doSpecialVector[[object@type]]))
+                  doSpecialVector[[object@type]](object)
               else
-                  callNextMethod()
+                  callNextMethod() # signature c("vectorR", "ANY")
           })
 
 #' Class for General Julia Composite Type Objects
