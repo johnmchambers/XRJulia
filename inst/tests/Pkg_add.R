@@ -1,3 +1,5 @@
+## kept around for including a test of Pkg.add
+
 require(XRJulia)
 ev <- RJulia()
 ev$Eval("1+1")
