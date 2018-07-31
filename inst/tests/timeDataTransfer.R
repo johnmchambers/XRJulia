@@ -11,7 +11,7 @@ logicalTest = numericTest > 0
 characterTest = as.character(integerTest)
 complexTest <- complex(numericTest, numericTest*.1)
 rawTest <- charToRaw(paste0(characterTest, collapse = ""))
-length(rawTest) <- N
+length(rawTest) <- length(numericTest)
 data <- data.frame(character = characterTest, numeric = numericTest, integer = integerTest, logical = logicalTest,
                       complex = complexTest, raw = rawTest)
 
