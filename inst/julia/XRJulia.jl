@@ -386,7 +386,7 @@ end
 
 ## functions for direct writing of long vectors
 function vector_R_binary(rtype, x)
-    if(rtype == "logical")
+    if(rtype == "logical" || rtype == "integer") # convert bool or Int64 to Int32
         x = convert(forRTypes["integer"], x)
     elseif rtype == "character"
         function eos(xi::String) xi * "\0" end #need EOS to separate strings
