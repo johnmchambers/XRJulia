@@ -4,42 +4,6 @@ export RJuliaCommand, toR, RObject, vectorR, conditionToR
 
 import JSON
 
-## special processing for array objects via JSON
-function objectFromJSON(str::String)
-    fromJSONObject(JSON.parse(str))
-end
-
-## Interpreting the parsed JSON representation
-
-function fromJSONObject(object)
-    ## by default, as is (covers scalars, strings)
-    object
-end
-
-function fromJSONObject(object::Array{Any, 1})
-    ## check for a single type of object
-    ## TODO:  should also handle the case that all elements can be converted
-    ## to one type; e.g., integer & float; numeric & string
-    types = Array{Any}(size(object))
-    for i in 1:length(object)
-        types[i] = typeof(object[i])
-    end
-    types = unique(types)
-    if length(types) == 1
-        convert(typeof(Array{types[1]}(1)), object)
-    else
-        object
-    end
-end
-
-## JSON dictionaries are used to encode R classes
-function fromJSONObject(object::Dict{AbstractString,Any})
-    if haskey(object, ".RClass")
-        makeRObject(object)
-    else
-        object
-    end
-end
 
 function makeRObject(object::Dict{AbstractString,Any})
     obj = copy(object)
@@ -55,15 +19,11 @@ end
 juliaTypes = Dict{String,DataType}( "integer" => Int32, "numeric" => Float64, "character" => String,
                 "logical" => Int32, "complex" => Complex{Float64}, "raw" => UInt8, "double" => Float64)
 
-juliaArrayTypes = Dict{String,DataType}( "integer" => Array{Int64,1}, "numeric" => Array{Float64,1},
-                     "character" => Array{String,1},
-                     "logical" => Array{Bool,1}, "double" => Array{Float64,1} )
-
 ### Converting Array{} types in Julia to basic R vector classes (Not actual typeof())
 RTypes = Dict{String, String}("Array{Int32,1}" => "integer", "Array{Float64,1}" => "numeric", "Array{String,1}" => "character",
           "Array{Complex{Float64},1}" => "complex",
           "Array{Bool,1}" => "logical", "Array{Any,1}" => "list", "Array{UInt8,1}" => "raw",
-          "Array{Int64,1}" => "integer") ## currently parsing JSON gives Int64, but binary transfer must be Int32. Which should win?  probably 32
+          "Array{Int64,1}" => "integer") 
                               
 ## the reverse:  making data compatible with R vector types
 forRTypes = Dict{String, DataType}("integer" => Array{Int32,1} , "numeric" => Array{Float64,1} , "character" => Array{String,1},
@@ -449,6 +409,8 @@ function binaryRVector(file::AbstractString, vtype::AbstractString, length::Int6
             bool[i] = value[i] != 0
         end
         bool
+    elseif vtype == "integer"
+        convert(Array{Int64,1}, value) # to be consistent with what JSON does
     else
         value
     end
