@@ -6,17 +6,6 @@ using XRJulia
 
 verbose = haskey(ENV, "JuliaVerbose")
 
-## ? this causes a hang?
-## if(!XRJulia.hasJSON)
-##     if(verbose)
-##         show("adding package JSON to julia")
-##     end
-##     XRJulia.getJSON()
-##     if(verbose)
-##         show("JSON added")
-##     end
-## end
-
 import JSON
 
 ## start evaluator
@@ -27,12 +16,12 @@ import JSON
 RJuliaSource = ENV["RJuliaSource"] # set in R when jlProc() object initialized
 
 RJuliaPort = parse(Int,ENV["RJuliaPort"])
-if(verbose)
+if verbose
   show(string("Starting socket on port ",RJuliaPort))
 end
 
 RJuliaServer = listen(RJuliaPort)
-if(verbose)
+if verbose
   show("Server obtained\n")
 end
 RJuliaSocket = accept(RJuliaServer)
