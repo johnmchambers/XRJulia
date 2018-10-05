@@ -10,8 +10,6 @@ import JSON
 
 ## start evaluator
 
-
-
 ## all the ENV's should be in a try
 RJuliaSource = ENV["RJuliaSource"] # set in R when jlProc() object initialized
 

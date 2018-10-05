@@ -4,7 +4,6 @@ export RJuliaCommand, toR, RObject, vectorR, conditionToR
 
 import JSON
 
-
 function makeRObject(object::Dict{AbstractString,Any})
     obj = copy(object)
     RClass = pop!(obj, ".RClass") # must be there
@@ -186,7 +185,7 @@ end
 type proxyForR
     key:: AbstractString
     serverClass:: AbstractString
-    length:: Int64
+    length:: Int
 end
 
 function proxyForR(key, value)
@@ -287,7 +286,7 @@ function toR{T,N}(x::Array{T,N})
     else
         Class = "array"
     end
-    dim = Array{Int64}(ndim)
+    dim = Array{Int}(ndim)
     for i in 1:ndim
         dim[i] = dims[i]
     end
@@ -314,7 +313,7 @@ function vectorR(x)
     ## a corresponding mechanism in the method for asROject(), ("vector_R", "JuliaInterface")
     mm = Array{Bool}(0) # missing values
     if length(x) > RJuliaParams["largeObject"]
-        if(haskey(to_R_direct, rtype))
+        if haskey(to_R_direct, rtype)
         method = to_R_direct[rtype]
         return method(rtype, x)
         end
@@ -346,7 +345,7 @@ end
 
 ## functions for direct writing of long vectors
 function vector_R_binary(rtype, x)
-    if(rtype == "logical" || rtype == "integer") # convert bool or Int64 to Int32
+    if rtype == "logical" || rtype == "integer" # convert bool or Int64 to Int32
         x = convert(forRTypes["integer"], x)
     elseif rtype == "character"
         function eos(xi::String) xi * "\0" end #need EOS to separate strings
@@ -357,20 +356,6 @@ function vector_R_binary(rtype, x)
     slots = Dict{RName, Any}("file" => file, "type" => rtype, "length" => length(x))
     RObject("vector_R_direct","XR", "S4", nothing, slots)
 end
-
-    # no longer used
-# ## for string arrays, Julia writes the strings w/o terminators.
-# ## So we return that file plus a second file with the array of string lengths.
-# function vector_R_strings(rtype, x)
-#     file1= getVectorFile()
-#     nbytes = write(file1, x) # the total character count, with no string terminators (? chars, not bytes?)
-#     ## a vector of the nchars, compatible with R integer vector
-#     lens = convert(forRTypes["integer"], map(length,x))
-#     file2 = getVectorFile()
-#     write(file2, lens)
-#     slots = Dict{RName, Any}("stringFile" => file1, "nbytes" => nbytes, "ncharsFile" => file2, "length" => length(x))
-#     RObject("character_R_direct","XR", "S4", nothing, slots)
-# end
 
 to_R_direct = Dict{AbstractString, Any}(
     "numeric" => vector_R_binary, "integer" => vector_R_binary,
@@ -398,7 +383,8 @@ function classInfo(what::DataType)
      Dict{RName, Any}("fields" => fields, "readOnly" => readOnly )
 end
 
-function binaryRVector(file::AbstractString, vtype::AbstractString, length::Int64)
+## called from R when sending large vector
+function binaryRVector(file::AbstractString, vtype::AbstractString, length::Int)
     if vtype == "character"
         return readRStrings(file, length)
     end
@@ -410,13 +396,13 @@ function binaryRVector(file::AbstractString, vtype::AbstractString, length::Int6
         end
         bool
     elseif vtype == "integer"
-        convert(Array{Int64,1}, value) # to be consistent with what JSON does
+        convert(Array{Int,1}, value) # to be consistent with Julia, may be Int64
     else
         value
     end
  end
 
-function readRStrings(file::AbstractString, n::Int64)
+function readRStrings(file::AbstractString, n::Int)
     text = convert(String, read(file))
     value = convert(Array{String, 1}, split(text, '\0', keep = false))
     if length(value) != n
