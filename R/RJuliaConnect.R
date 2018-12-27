@@ -72,6 +72,7 @@ JuliaInterface$methods(
                            port <<- as.integer(base + XR::evaluatorNumber(.self)) - 1L
                        }
                        if(startJulia) {
+                           Sys.setenv(JULIA_JUNK = "This is a silly environment variable\n")  ## just for testing
                            ## the equivalent of AddToPath(), done in Julia
                            julia_lib <- system.file("julia",package = "XRJulia")
                            Sys.setenv(RJULIA_LIB = julia_lib)
@@ -91,12 +92,7 @@ JuliaInterface$methods(
                            juliaStart <-  system.file("julia","RJuliaJSON.jl", package = .packageName)
                            Sys.setenv(RJuliaPort=port, RJuliaHost = host, RJuliaSource=juliaFolder)
                            if(identical(host, "localhost")) {
-                               if(!testJSON(julia_bin)) { # try to add the JSON module
-                                   jsonAdd <- system.file("julia","addJSON.jl", package = .packageName)
-                                   base::system(juliaCMD(julia_bin, jsonAdd))
-                                   if(!testJSON(julia_bin))
-                                       stop("No JSON module in julia and unable to add:  try to add this module in julia")
-                               }
+                               testJSON(julia_bin)
                                base::system(juliaCMD(julia_bin, juliaStart), wait = FALSE)
                            }
                        }
@@ -112,8 +108,6 @@ JuliaInterface$methods(
                                           warning = function(w)w)
                            if(is(sc, "connection"))
                                break
-                           if(verbose)
-                               recover()
                            if(verbose)
                                cat(if(i==1) "Waiting." else ".")
                        }
@@ -352,7 +346,7 @@ findJulia <- function(test = FALSE) {
             stop("No julia executable in search path and JULIA_BIN environment variable not set")
     }
     if(test)
-        nzchar(envvar)  && testJSON(envvar) # to protect examples from long delay
+        nzchar(envvar)
     else
         envvar
 }
@@ -360,13 +354,14 @@ findJulia <- function(test = FALSE) {
 ## command to run a julia file.
 ## Needs to allow for a blank in the Windows location ("Program Files")
 juliaCMD <- function(julia_bin, testFile)
-    if (.Platform$OS.type == "windows") paste0('"',julia_bin,'" ', testFile) else paste(julia_bin, "<", testFile)
+    if (.Platform$OS.type == "windows") paste0('"',julia_bin,'" ', testFile) else paste(julia_bin, testFile)
 
 testJSON <- function(julia_bin) {
     testFile <- system.file("julia", "testJSON.jl", package = "XRJulia")
     cmd <-  juliaCMD(julia_bin, testFile)
-    hasJSON <- base::system(cmd, intern = TRUE)
-    identical("YES", hasJSON)
+    if(base::system(cmd)) # error exit from command
+        stop("Unable to continue:  failed to get JSON.  Try Pkg.add() from julia directly")
+    TRUE
 }
     
 

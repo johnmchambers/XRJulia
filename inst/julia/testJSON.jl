@@ -1,9 +1,20 @@
-importExpr = parse("import JSON")
-## Because adding a package during initialization can delay startup and cause the waiting process to
-## think the connection is blocked, we delay the package add until JSON is first required.
+using Pkg
+
+function addJSON()
+    try
+        write(stderr, "Trying to add Julia package JSON; expect some messages and some delay\n")
+        Pkg.add("JSON")
+        0
+    catch err
+        write(stderr, "Unable to add package JSON: ")
+        showerror(stderr, err)
+        1
+    end
+end
+
 try
-    eval(importExpr)
-    write(STDOUT, "YES")
+    import JSON
+    exit(0)
 catch err
-    write(STDOUT, "NO")
+    exit(addJSON())
 end

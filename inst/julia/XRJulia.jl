@@ -46,7 +46,7 @@ function RJuliaCommand(args::Array{Any,1})
         ## push the args.  Each task is actually called with a known number
         ## of arguments, but the definitions allow for defaults if those make sense
         ee = Expr(:call)
-        aa = Array{Any}(0)
+        aa = Array{Any}(undef, 0)
         push!(aa, f)
         for i in 2:length(args)
             push!(aa, args[i])
@@ -62,7 +62,7 @@ end
 
 function RJuliaGet(key::AbstractString)
     try
-        eval(parse(key))
+        eval(Meta.parse(key))
     catch err
         conditionToR(string("In Get() with key = \"$key\": ", err))
     end
@@ -82,11 +82,11 @@ function RJuliaEval(expr::AbstractString, key::AbstractString = "", send = nothi
     try
         if key == ""
             what = "command"
-            eval(parse(expr))
+            eval(Meta.parse(expr))
             return nothing
         else
-            eval(parse(string(key, " = Rguard(", expr, ")")))
-            value = eval(parse(key))
+            eval(Meta.parse(string(key, " = Rguard(", expr, ")")))
+            value = eval(Meta.parse(key))
         end
     catch err
         msg = string("Evaluating Julia ", what, ": ", JSON.string(expr))
@@ -107,7 +107,7 @@ function RJuliaRemove(key)
 end
 
 function RJuliaQuit()
-    quit() # that's all follks!
+    exit() # that's all follks!
 end
 
 ## options for Julia.  Anything can be set here via the R juliaOptions() function.  The values below will be
@@ -140,7 +140,7 @@ function RJuliaGetParams(what::Array{String, 1})
 end
 
 function RJuliaGetParams(what::String)
-    names = Array{String,1}(1)
+    names = Array{String,1}(undef,1)
     names[1] = what
     RJuliaGetParams(names)
 end
@@ -154,16 +154,16 @@ TaskFunctions = Dict{String, Function}( "get" => RJuliaGet,
 function conditionToR(msg, err = nothing)
     if err != nothing
         ## would be better to capture the detailed error message somewhere?
-        write(STDERR, "Julia error: ")
-        showerror(STDERR, err)
-        write(STDERR, "\n")
+        write(stderr, "Julia error: ")
+        showerror(stderr, err)
+        write(stderr, "\n")
     end
     value = RObject("InterfaceError", "XR")
     value.slots = Dict{AbstractString, Any}("message" => msg) # could one derive expr from err object?
     value
 end
 
-RBasic = Union{Number, AbstractString, Bool, Void}
+    RBasic = Union{Number, AbstractString, Bool, Nothing}
 RUnconvertible = Union{DataType, Function}
 
 function treatAsProxy(object)
@@ -182,7 +182,7 @@ function objectOrProxy(key, value)
     end
 end
 
-type proxyForR
+mutable struct proxyForR
     key:: AbstractString
     serverClass:: AbstractString
     length:: Int
@@ -199,7 +199,7 @@ function proxyForR(key, value)
 end
 
 RName = Union{String} # placeholder for future change to AbstractString,or ....
-type RObject
+mutable struct RObject
     class::RName
     package::RName
     dataType::RName
@@ -263,14 +263,14 @@ toR(x::RBasic) = x
 
 toR(x::Symbol) = string(x)
 
-toR{T}(x::Array{T,1}) = toR(vectorR(x))
+toR(x::Array{T,1}) where T = toR(vectorR(x))
 
 
 function toR(x::Tuple)
     toR([x...])
 end
 
-function toR{T,TE}(x::Dict{T,TE})
+function toR(x::Dict{T,TE}) where {T,TE}
     xx = copy(x)
     for nn in keys(x)
         xx[nn] = toR(x[nn])
@@ -278,7 +278,7 @@ function toR{T,TE}(x::Dict{T,TE})
     xx
 end
 
-function toR{T,N}(x::Array{T,N})
+function toR(x::Array{T,N}) where {T,N}
     dims = size(x)
     ndim = length(dims)
     if ndim == 2
@@ -286,7 +286,7 @@ function toR{T,N}(x::Array{T,N})
     else
         Class = "array"
     end
-    dim = Array{Int}(ndim)
+    dim = Array{Int}(undef, ndim)
     for i in 1:ndim
         dim[i] = dims[i]
     end
@@ -311,7 +311,7 @@ function vectorR(x)
     ## <TODO>  In order to handle Julia's scalar types with no R equivalent, there should be
     ## a mechanism here to set the "type" slot to the actual Julia typeStr, with
     ## a corresponding mechanism in the method for asROject(), ("vector_R", "JuliaInterface")
-    mm = Array{Bool}(0) # missing values
+    mm = Array{Bool}(undef, 0) # missing values
     if length(x) > RJuliaParams["largeObject"]
         if haskey(to_R_direct, rtype)
         method = to_R_direct[rtype]
@@ -319,7 +319,7 @@ function vectorR(x)
         end
     end
     if rtype == "list"
-        value = Array{Any}(size(x))
+        value = Array{Any}(undef, size(x))
         for i in 1:length(x)
             value[i] = toR(x[i])
         end
@@ -366,7 +366,7 @@ to_R_direct = Dict{AbstractString, Any}(
 function fieldNames(what::DataType)
     syms = fieldnames(what)
     n = length(syms)
-    fields = Array{String}(n)
+    fields = Array{String}(undef, n)
     for i in 1:n
         fields[i] = string(syms[i])
     end
@@ -388,9 +388,9 @@ function binaryRVector(file::AbstractString, vtype::AbstractString, length::Int)
     if vtype == "character"
         return readRStrings(file, length)
     end
-    value = read!(file, Array{juliaTypes[vtype]}(length))
+    value = read!(file, Array{juliaTypes[vtype]}(undef, length))
     if vtype == "logical"
-        bool = Array{Bool}(length)
+        bool = Array{Bool}(undef, length)
         for i in 1:length
             bool[i] = value[i] != 0
         end
@@ -406,7 +406,7 @@ function readRStrings(file::AbstractString, n::Int)
     text = convert(String, read(file))
     value = convert(Array{String, 1}, split(text, '\0', keep = false))
     if length(value) != n
-        write(STDERR, "Warning:  expected to read $n strings with EOS separaters; got $(length(value))")
+        write(stderr, "Warning:  expected to read $n strings with EOS separaters; got $(length(value))")
     end
     value
 end

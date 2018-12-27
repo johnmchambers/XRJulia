@@ -7,22 +7,52 @@ using XRJulia
 verbose = haskey(ENV, "JuliaVerbose")
 
 import JSON
+import Sockets
 
 ## start evaluator
 
 ## all the ENV's should be in a try
-RJuliaSource = ENV["RJuliaSource"] # set in R when jlProc() object initialized
+## RJuliaSource = ENV["RJuliaSource"] # set in R when jlProc() object initialized
 
-RJuliaPort = parse(Int,ENV["RJuliaPort"])
+RJuliaPort = 0
+try
+    global RJuliaPort = eval(Meta.parse(ENV["RJuliaPort"]))
+    if verbose
+        write(stderr, "Got port: $RJuliaPort \n")
+    end
+catch err
+    write(stderr, "Couldn't get RJuliaPort\n")
+    showerror(stderr, err)
+    exit()
+end
+
+    
 if verbose
   show(string("Starting socket on port ",RJuliaPort))
 end
 
-RJuliaServer = listen(RJuliaPort)
-if verbose
-  show("Server obtained\n")
+RJuliaServer = ""
+try global RJuliaServer = Sockets.listen(RJuliaPort)
+    if verbose
+        show("Server obtained\n")
+    end
+catch err
+    write(stderr, "Couldn't get RJuliaServer\n")
+    showerror(stderr, err)
+    exit()
 end
-RJuliaSocket = accept(RJuliaServer)
+
+RJuliaSocket = ""
+try global  RJuliaSocket = Sockets.accept(RJuliaServer)
+    if verbose
+        show("Socket accepting\n")
+    end
+catch err
+    write(stderr, "Couldn't get Socket\n")
+    showerror(stderr, err)
+    exit()
+end
+
 
 ## the server loop:  reads a JSON object which needs to be an RJulia command
 if verbose
@@ -31,26 +61,25 @@ end
 nInternErrors = 0
 
 while true
-    verbose = haskey(ENV, "JuliaVerbose")
 
     cmd = ["undef", "undef", true, true]
     value = NaN
     try
         if(eof(RJuliaSocket)) # can't help R closing sometimes w/o sending Quit to evaluator
-            quit()
+            exit()
         end
         cmd = JSON.parse(RJuliaSocket)
         if verbose
             show(string("JSON parsed cmd: ", cmd))
         end
     catch err
-        write(STDERR, "Julia Error/Interrupt in reading command: ")
-        showerror(STDERR, err)
+        write(stderr, "Julia Error/Interrupt in reading command: ")
+        showerror(stderr, err)
         ##### TODO:  distinguish error from interrupt here
         ## nInternErrors += 1
         ## if(nInternErrors > 5)
-        ##     write(STDERR, "Too many internal errors: quitting\n")
-        ##     quit()
+        ##     write(stderr, "Too many internal errors: quitting\n")
+        ##     exit()
         ## end
         continue
     end
@@ -61,28 +90,27 @@ while true
         end
     catch err
         if verbose
-            write(STDERR, "Julia Error in evaluating command: ")
-            showerror(STDERR, err)
+            write(stderr, "Julia Error in evaluating command: ")
+            showerror(stderr, err)
         end
         ## unlike the processing type errors, this is presumably a user error
         ## and is communicated back to R as an object
     end
     try
         if(!isopen(RJuliaSocket)) # see comment before parse
-            quit()
+            exit()
         end
         JSON.print(RJuliaSocket, toR(value))
         write(RJuliaSocket, "\n")
     catch err
-        write(STDERR, "Julia Error in returning value of command: ")
-        showerror(STDERR, err)
-        nInternErrors += 1
+        write(stderr, "Julia Error in returning value of command: ")
+        showerror(stderr, err)
+        global nInternErrors += 1
         if(nInternErrors > 5)
-            write(STDERR, "Too many internal errors: quitting\n")
-            quit()
+            write(stderr, "Too many internal errors: exiting\n")
+            exit()
         end
         write(RJuliaSocket, "\n") # try to send an empty result back
         continue
     end
 end
-
