@@ -352,7 +352,15 @@ function vector_R_binary(rtype, x)
         x = map(eos, x)
     end
     file = getVectorFile()
-    write(file, x)
+    ot = open(file, "w")
+    if rtype == "character"
+        for i in 1:length(x)
+              write(ot, x[i])
+        end
+        close(ot)
+    else 
+        write(file, x)
+    end
     slots = Dict{RName, Any}("file" => file, "type" => rtype, "length" => length(x))
     RObject("vector_R_direct","XR", "S4", nothing, slots)
 end
@@ -403,8 +411,9 @@ function binaryRVector(file::AbstractString, vtype::AbstractString, length::Int)
  end
 
 function readRStrings(file::AbstractString, n::Int)
-    text = convert(String, read(file))
-    value = convert(Array{String, 1}, split(text, '\0', keep = false))
+    text = read(file,String)
+    value = convert(Array{String, 1}, split(text, '\0'))
+    Base.deleteat!(value, length(value)) # extra empty element
     if length(value) != n
         write(stderr, "Warning:  expected to read $n strings with EOS separaters; got $(length(value))")
     end
