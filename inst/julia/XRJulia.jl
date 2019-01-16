@@ -235,7 +235,7 @@ end
 function toR(x)
     z = Dict{RName, Any}("serverClass" =>  string(typeof(x)))
     d = Dict{RName, Any}()
-    nn = fieldnames(x)
+    nn = fieldnames(typeof(x))
     for i in nn
         d[string(i)] = toR(getfield(x, i))
     end
