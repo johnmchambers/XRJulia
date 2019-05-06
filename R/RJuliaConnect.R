@@ -363,9 +363,16 @@ juliaCMD <- function(julia_bin, testFile, ...)
 
 testJSON <- function(julia_bin) {
     testFile <- system.file("julia", "testJSON.jl", package = .packageName)
-    if(juliaCMD(julia_bin, testFile)) # error exit from command
-      stop("Unable to continue:  failed to get JSON.  Try Pkg.add() from julia directly")
+    if(juliaCMD(julia_bin, testFile) > 0) # error exit from command
+      stop("Unable to continue:  failed to get JSON.jl - try Pkg.add() from julia directly")
     TRUE
+}
+
+testSockets <- function(julia_bin) {
+  testFile <- system.file("julia", "testSockets.jl", package = .packageName)
+  if(juliaCMD(julia_bin, testFile) > 0) # error exit from command
+    stop("Unable to continue:  failed to get Sockets.jl - try Pkg.add() from julia directly")
+  TRUE
 }
     
 
