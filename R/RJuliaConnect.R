@@ -356,7 +356,6 @@ findJulia <- function(test = FALSE) {
 juliaCMD <- function(julia_bin, testFile, ...)
     if (.Platform$OS.type == "windows"){
       base::system2(command = julia_bin, args = paste0('"', testFile, '"'), ...)
-      paste0('"',julia_bin,'" ', testFile)
     } else {
       base::system(command = paste(julia_bin, testFile), ...)
     }
