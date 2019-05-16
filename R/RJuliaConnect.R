@@ -93,7 +93,7 @@ JuliaInterface$methods(
                            Sys.setenv(RJuliaPort=port, RJuliaHost = host, RJuliaSource=juliaFolder)
                            if(identical(host, "localhost")) {
                                testJSON(julia_bin)
-                               base::system(juliaCMD(julia_bin, juliaStart), wait = FALSE)
+                               juliaCMD(julia_bin, juliaStart, wait = FALSE)
                            }
                        }
                        ## else, the Julia process should have been started and have called accept()
@@ -128,7 +128,7 @@ JuliaInterface$methods(
         value <- ServerTask("eval", expr, key, get)
         on.exit(serverWrapup <<- character())
         for(action in serverWrapup)
-            base::eval(base::parse(text = action))
+            base::eval(base::parse(text = action, encoding = "UTF-8"))
         XR::valueFromServer(value, key, get, .self)
     },
     ServerRemove = function(what)
@@ -353,15 +353,25 @@ findJulia <- function(test = FALSE) {
 
 ## command to run a julia file.
 ## Needs to allow for a blank in the Windows location ("Program Files")
-juliaCMD <- function(julia_bin, testFile)
-    if (.Platform$OS.type == "windows") paste0('"',julia_bin,'" ', testFile) else paste(julia_bin, testFile)
+juliaCMD <- function(julia_bin, testFile, ...)
+    if (.Platform$OS.type == "windows"){
+      base::system2(command = julia_bin, args = paste0('"', testFile, '"'), ...)
+    } else {
+      base::system(command = paste(julia_bin, testFile), ...)
+    }
 
 testJSON <- function(julia_bin) {
-    testFile <- system.file("julia", "testJSON.jl", package = "XRJulia")
-    cmd <-  juliaCMD(julia_bin, testFile)
-    if(base::system(cmd)) # error exit from command
-        stop("Unable to continue:  failed to get JSON.  Try Pkg.add() from julia directly")
+    testFile <- system.file("julia", "testJSON.jl", package = .packageName)
+    if(juliaCMD(julia_bin, testFile) > 0) # error exit from command
+      stop("Unable to continue:  failed to get JSON.jl - try Pkg.add() from julia directly")
     TRUE
+}
+
+testSockets <- function(julia_bin) {
+  testFile <- system.file("julia", "testSockets.jl", package = .packageName)
+  if(juliaCMD(julia_bin, testFile) > 0) # error exit from command
+    stop("Unable to continue:  failed to get Sockets.jl - try Pkg.add() from julia directly")
+  TRUE
 }
     
 

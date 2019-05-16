@@ -44,8 +44,8 @@ if(findJulia(test = TRUE)) {
   set.seed(228)
   x <- matrix(rnorm(1000),20,5)
   xm <- juliaSend(x)
-  svdJ <- JuliaFunction("svdfact")
+  svdJ <- JuliaFunction("LinearAlgebra.svd")
   sxm <- svdJ(xm)
-  sxm
+  juliaGet(sxm)
 }
 }
